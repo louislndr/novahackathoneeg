@@ -45,6 +45,13 @@
 5. **Document Results**: Add review section to `tasks/todo.md`
 6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
 
+## Git Workflow
+
+- **Logical commits**: Group related changes into a single commit — unrelated changes go in separate commits
+- **Always push**: After every commit or group of commits, push to GitHub immediately
+- **Claude writes the message**: Generate a short, descriptive commit message that explains what changed and why (not just "update file")
+- **Commit format**: `type: short description` (e.g. `feat: add EEG feature extraction`, `fix: correct band-pass filter range`, `refactor: simplify signal pipeline`)
+
 ## Core Principles
 
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
