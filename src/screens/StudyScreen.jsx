@@ -1,8 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Globe, Play, Square, ArrowRight, Loader2, AlertTriangle,
-  RefreshCw, ExternalLink,
+  Globe, Play, Square, ArrowRight, Loader2, AlertTriangle, RefreshCw,
 } from 'lucide-react'
 import GazeTracker from '../components/GazeTracker'
 import { formatMsLive } from '../App'
@@ -116,18 +115,6 @@ export default function StudyScreen({
           Load
           <ArrowRight size={13} />
         </motion.button>
-
-        {iframeUrl && (
-          <a
-            href={iframeUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-ghost py-2.5 flex-shrink-0"
-            title="Open in new tab"
-          >
-            <ExternalLink size={13} />
-          </a>
-        )}
 
         <div className="w-px h-5 bg-white/[0.08] flex-shrink-0" />
 
