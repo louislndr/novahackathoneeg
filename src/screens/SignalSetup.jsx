@@ -1,8 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Radio, Wifi, WifiOff, AlertTriangle, Activity, Settings, Eye, Key, Sparkles, Loader2 } from 'lucide-react'
-import EEGWave from '../components/EEGWave'
-
-const CHANNELS = ['Fp1', 'Fz', 'Cz', 'Pz', 'O1', 'T7']
+import { Radio, Wifi, WifiOff, Eye, Key, Sparkles, Loader2 } from 'lucide-react'
 
 function Toggle({ value, onChange }) {
   return (
@@ -73,10 +70,7 @@ function DeviceCard({ title, subtitle, status, channels }) {
   )
 }
 
-const CHANNEL_UV = CHANNELS.map(() => (Math.random() * 20 + 5).toFixed(1))
-
 export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeEnabled, apiKey, setApiKey, eegWsStatus }) {
-  const simulated = eegMode === 'simulated'
   const live = eegMode === 'live'
 
   const container = {
@@ -147,87 +141,6 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
             )}
           </AnimatePresence>
         </motion.div>
-
-        {/* Simulation toggle */}
-        <motion.div variants={item} className="panel w-full p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Activity size={15} className={simulated ? 'text-mint-500' : 'text-white/30'} />
-                <h3 className="text-sm font-semibold">EEG Simulation Mode</h3>
-              </div>
-              <p className="text-white/35 text-xs mt-0.5 ml-6">
-                Generate synthetic signals for demo and development
-              </p>
-            </div>
-            <Toggle value={simulated} onChange={(v) => setEegMode(v ? 'simulated' : 'disconnected')} />
-          </div>
-
-          <AnimatePresence>
-            {simulated && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="flex items-start gap-2.5 p-4 rounded-lg bg-yellow-500/[0.06] border border-yellow-500/20 mt-3">
-                  <AlertTriangle size={13} className="text-yellow-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-yellow-400/80 text-xs leading-relaxed">
-                    <strong>Simulated EEG</strong> — All signals shown below are algorithmically generated. They do not represent real brain activity, cognitive states, or any physiological measurement.
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Multi-channel EEG display */}
-        <AnimatePresence>
-          {simulated && (
-            <motion.div
-              variants={item}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              className="panel p-5"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-semibold">Live Signal Preview</h3>
-                  <p className="text-white/35 text-xs mt-0.5">6 of 12 channels shown</p>
-                </div>
-                <span className="text-xs px-2.5 py-1 rounded-full border font-semibold bg-yellow-500/[0.08] text-yellow-400 border-yellow-500/20">
-                  SIMULATED EEG
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                {CHANNELS.map((ch, i) => (
-                  <motion.div
-                    key={ch}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3"
-                  >
-                    <span className="text-white/30 text-[11px] w-7 flex-shrink-0 text-right">{ch}</span>
-                    <div className="flex-1 bg-[#0f0f0f] rounded-lg overflow-hidden" style={{ height: 44 }}>
-                      <EEGWave active={true} height={44} channelIndex={i} />
-                    </div>
-                    <span className="text-white/15 text-[10px] w-14 text-right flex-shrink-0">
-                      {CHANNEL_UV[i]} μV
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
-
-              <p className="text-white/15 text-[10px] text-center mt-4">
-                Signals are synthetic · Not for clinical or research use
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Eye tracking + AI */}
         <motion.div variants={item} className="panel w-full p-5">
@@ -303,31 +216,6 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
           </AnimatePresence>
         </motion.div>
 
-        {/* Live connection instructions */}
-        <motion.div variants={item} className="panel w-full p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Settings size={14} className="text-white/30" />
-            <h3 className="text-sm font-semibold">How it connects</h3>
-          </div>
-          <div className="space-y-3">
-            {[
-              { step: '01', text: 'ANT Neuro eego streams EEG data via LSL on the local network' },
-              { step: '02', text: 'bridge.py picks up the LSL stream and forwards it over WebSocket' },
-              { step: '03', text: 'FrictionFix receives live channel data at ws://localhost:4514' },
-              { step: '04', text: 'Cognitive load is computed from alpha / beta band-power ratio' },
-            ].map(({ step, text }) => (
-              <div key={step} className="flex items-start gap-3">
-                <span className="text-[10px] text-white/20 pt-0.5 w-5 flex-shrink-0">{step}</span>
-                <p className="text-white/40 text-sm leading-relaxed">{text}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 px-4 py-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-            <p className="text-white/20 text-xs">
-              WebSocket: <span className="text-white/40">ws://localhost:4514</span> · LSL type: <span className="text-white/40">EEG</span>
-            </p>
-          </div>
-        </motion.div>
       </motion.div>
     </div>
   )
