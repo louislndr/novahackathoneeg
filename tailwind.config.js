@@ -11,6 +11,12 @@ export default {
           600: '#00c88a',
           700: '#00a572',
         },
+        brand: {
+          300: '#ffcaaa',
+          400: '#ffad89',
+          500: '#ff8a5b',
+          600: '#ff6030',
+        },
       },
       fontFamily: {
         sans: ['DM Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],

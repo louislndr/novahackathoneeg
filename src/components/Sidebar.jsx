@@ -12,8 +12,8 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults, 
     <aside className="app-sidebar w-52 flex-shrink-0 border-r border-white/[0.08] flex flex-col">
       <div className="h-14 flex items-center px-4 border-b border-white/[0.05]">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-mint-500 flex items-center justify-center shadow-lg shadow-mint-500/20">
-            <Activity size={14} strokeWidth={2.5} className="text-[#0d0d0d]" />
+          <div className="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/25">
+            <Activity size={14} strokeWidth={2.5} className="text-[#1d100c]" />
           </div>
           <span className="font-semibold text-[15px] tracking-tight font-display">FrictionFix</span>
         </div>
@@ -33,18 +33,18 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults, 
               aria-current={active ? 'page' : undefined}
               className={[
                 'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150',
-                active ? 'bg-white/[0.07] text-white'
+                active ? 'bg-brand-500/[0.1] text-white'
                   : disabled ? 'text-white/20 cursor-not-allowed'
                   : 'text-white/45 hover:text-white/75 hover:bg-white/[0.04] cursor-pointer',
               ].join(' ')}
             >
-              <Icon size={15} className={active ? 'text-mint-500' : ''} />
+              <Icon size={15} className={active ? 'text-brand-500' : ''} />
               {label}
               {id === 'study' && sessionActive && (
                 <motion.span
                   animate={{ opacity: [1, 0.3, 1] }}
                   transition={{ repeat: Infinity, duration: 1.6 }}
-                  className="ml-auto w-1.5 h-1.5 rounded-full bg-mint-500"
+                  className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-500"
                 />
               )}
             </motion.button>
@@ -60,7 +60,7 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults, 
             <Brain size={11} />
             EEG
           </div>
-          <span className={`text-[11px] font-medium ${eegMode === 'simulated' ? 'text-yellow-400' : 'text-white/20'}`}>
+          <span className={`text-[11px] font-medium ${eegMode === 'simulated' ? 'text-brand-400' : 'text-white/20'}`}>
             {eegMode === 'simulated' ? 'Simulated' : 'Off'}
           </span>
         </div>
@@ -69,7 +69,7 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults, 
             <Eye size={11} />
             Eye tracking
           </div>
-          <span className={`text-[11px] font-medium ${gazeEnabled ? 'text-violet-400' : 'text-white/20'}`}>
+          <span className={`text-[11px] font-medium ${gazeEnabled ? 'text-brand-500' : 'text-white/20'}`}>
             {gazeEnabled ? 'Active' : 'Off'}
           </span>
         </div>
