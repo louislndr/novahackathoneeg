@@ -3,23 +3,20 @@ import { Radio, Wifi, WifiOff, Eye, Key, Sparkles, Loader2 } from 'lucide-react'
 
 function Toggle({ value, onChange }) {
   return (
-    <motion.button
+    <button
       role="switch"
       aria-checked={value}
       onClick={() => onChange(!value)}
-      whileTap={{ scale: 0.96 }}
-      className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 ${
-        value ? 'bg-mint-500' : 'bg-white/[0.1]'
+      className={`relative flex-shrink-0 w-12 h-[26px] rounded-full outline-none transition-colors duration-200 ${
+        value ? 'bg-mint-500' : 'bg-white/10'
       }`}
     >
-      <motion.span
-        animate={{ x: value ? 22 : 2 }}
-        transition={{ type: 'spring', stiffness: 600, damping: 35 }}
-        className={`absolute top-[3px] w-[18px] h-[18px] rounded-full shadow-sm transition-colors duration-200 ${
-          value ? 'bg-white' : 'bg-white/70'
+      <span
+        className={`absolute top-[3px] left-[3px] w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out ${
+          value ? 'translate-x-[22px]' : 'translate-x-0'
         }`}
       />
-    </motion.button>
+    </button>
   )
 }
 
