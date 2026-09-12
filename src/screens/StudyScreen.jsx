@@ -46,13 +46,43 @@ export default function StudyScreen({
   eegMode, gazeEnabled, apiKey,
   suggestions, addSuggestion,
   elapsed, liveEegLoad, recalibrateKey,
-  startSession, stopSession, sendGaze,
+  startSession, stopSession, sendGaze, sendBehaviorEvent,
 }) {
   const [urlInput, setUrlInput] = useState('')
   const [iframeUrl, setIframeUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [iframeKey, setIframeKey] = useState(0)
   const iframeRef = useRef(null)
+
+  // Rage-click detection: track rapid clicks in the same region
+  const clickHistoryRef = useRef([])
+  const handleIframeClick = useCallback((e) => {
+    if (!sessionActive || !iframeUrl) return
+    const now = Date.now()
+    const WINDOW_MS = 2000
+    const REGION_PX = 60
+    clickHistoryRef.current = clickHistoryRef.current.filter(c => now - c.t < WINDOW_MS)
+    clickHistoryRef.current.push({ x: e.clientX, y: e.clientY, t: now })
+    const nearby = clickHistoryRef.current.filter(c =>
+      Math.hypot(c.x - e.clientX, c.y - e.clientY) < REGION_PX
+    )
+    if (nearby.length >= 3) {
+      sendBehaviorEvent?.({
+        type: 'rage_click',
+        page_url: iframeUrl,
+        element_id: null,
+        click_count: nearby.length,
+      })
+      clickHistoryRef.current = []
+    } else if (nearby.length >= 2) {
+      sendBehaviorEvent?.({
+        type: 'repeated_click',
+        page_url: iframeUrl,
+        element_id: null,
+        click_count: nearby.length,
+      })
+    }
+  }, [sessionActive, iframeUrl, sendBehaviorEvent])
 
   function normalizeUrl(raw) {
     const u = raw.trim()
@@ -183,7 +213,7 @@ export default function StudyScreen({
           )}
 
           {iframeUrl ? (
-            <div className="flex-1 relative">
+            <div className="flex-1 relative" onClick={handleIframeClick}>
               <iframe
                 key={iframeKey}
                 ref={iframeRef}

@@ -382,7 +382,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
     if (!fix.start) { fixRef.current.start = Date.now(); return }
     const fixDuration = Date.now() - fix.start
     const sinceLastTrigger = Date.now() - lastTriggerRef.current
-    if (fixDuration >= FIXATION_MS && eegLoadRef.current >= LOAD_THRESHOLD && sinceLastTrigger >= MIN_TRIGGER_INTERVAL_MS) {
+    if (fixDuration >= FIXATION_MS && sinceLastTrigger >= MIN_TRIGGER_INTERVAL_MS) {
       if (targetUrlRef.current) runAnalysis(x, y)
     }
   }, [drawHeat, runAnalysis])

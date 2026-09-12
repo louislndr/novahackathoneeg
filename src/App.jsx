@@ -102,7 +102,8 @@ export default function App() {
           participant_id: 'demo',
           website_url: url,
           source: 'manual',
-          policy: 'behavior_only',
+          policy: 'combined',
+          long_gaze_dwell_ms: 2000,
         })
         await client.start(session.session_id)
         backendSessionRef.current = { id: session.session_id, client }
@@ -158,6 +159,12 @@ export default function App() {
     } catch {}
   }, [])
 
+  const sendBehaviorEvent = useCallback(async (payload) => {
+    const session = backendSessionRef.current
+    if (!session) return
+    try { await session.client.event(session.id, payload) } catch {}
+  }, [])
+
   const handleRecalibrate = useCallback(() => setRecalibrateKey(k => k + 1), [])
 
   const ctx = {
@@ -174,6 +181,7 @@ export default function App() {
     recalibrateKey,
     backendFrictionEvents,
     sendGaze,
+    sendBehaviorEvent,
   }
 
   return (
