@@ -142,6 +142,9 @@ const MAX_JUMP_PX = 400
 // Module-level singleton — WebGazer must never be begin()'d twice.
 let _wg = null
 let _wgReady = false
+let _wgInitializing = false
+// Callbacks registered by components that mounted while begin() was still in flight.
+const _pendingAttach = new Set()
 
 export default function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, iframeRef, onSuggestion,
@@ -178,14 +181,28 @@ export default function GazeTracker({
   const lockedRef = useRef(false)
   const initRef = useRef(false)
   const wgRef = useRef(null)
+  const wgStatusRef = useRef('idle')
   const eegLoadHistory = useRef([30])
   const liveEegLoadRef = useRef(null)
   const canvasRef = useRef(null)
   const lastHeatTimeRef = useRef(0)
 
+  // Cache getBoundingClientRect — calling it 30fps forces layout reflow each time
+  const iframeRectRef = useRef(null)
+  const lastRectUpdateRef = useRef(0)
+  const getIframeRect = useCallback(() => {
+    if (!iframeRef?.current) return null
+    const now = Date.now()
+    if (!iframeRectRef.current || now - lastRectUpdateRef.current > 500) {
+      iframeRectRef.current = iframeRef.current.getBoundingClientRect()
+      lastRectUpdateRef.current = now
+    }
+    return iframeRectRef.current
+  }, [iframeRef])
+
   const drawHeat = useCallback((x, y) => {
-    if (!iframeRef?.current) return
-    const r = iframeRef.current.getBoundingClientRect()
+    const r = getIframeRect()
+    if (!r) return
     if (x < r.left || x > r.right || y < r.top || y > r.bottom) return
 
     const now = Date.now()
@@ -208,7 +225,7 @@ export default function GazeTracker({
     ctx.beginPath()
     ctx.arc(x, y, HEAT_RADIUS, 0, Math.PI * 2)
     ctx.fill()
-  }, [iframeRef])
+  }, [getIframeRect])
 
   useEffect(() => { eegLoadRef.current = eegLoad }, [eegLoad])
 
@@ -253,9 +270,9 @@ export default function GazeTracker({
 
     if (iframeRef?.current) {
       try {
-        const rect = iframeRef.current.getBoundingClientRect()
+        const rect = getIframeRect()
         const doc = iframeRef.current.contentDocument
-        if (doc) {
+        if (doc && rect) {
           const el = doc.elementFromPoint(gazeX - rect.left, gazeY - rect.top)
           if (el) {
             elementLabel =
@@ -280,7 +297,7 @@ export default function GazeTracker({
       return
     }
 
-    const rect = iframeRef?.current?.getBoundingClientRect()
+    const rect = getIframeRect()
     const iframeW = rect?.width || window.innerWidth
     const iframeH = rect?.height || window.innerHeight
     const relX = rect ? Math.round(gazeX - rect.left) : gazeX
@@ -329,7 +346,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       setIsAnalyzing(false)
       lockedRef.current = false
     }
-  }, [iframeRef, pulseX, pulseY])
+  }, [iframeRef, getIframeRect, pulseX, pulseY])
 
   // Stable gaze listener — does fixation detection inline, never calls setGaze
   const gazeListener = useCallback((data) => {
@@ -342,7 +359,10 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       : { x: data.x, y: data.y }
     gazeSmoothRef.current = smoothed
     drawHeat(smoothed.x, smoothed.y)
-    setWgStatus(s => s === 'calibrating' ? s : 'tracking')
+    if (wgStatusRef.current !== 'calibrating' && wgStatusRef.current !== 'tracking') {
+      wgStatusRef.current = 'tracking'
+      setWgStatus('tracking')
+    }
 
     // Fixation detection inline — no setState, no useEffect cycle at 30fps
     if (!sessionActiveRef.current || lockedRef.current) return
@@ -361,28 +381,52 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
   // WebGazer init/resume/pause
   useEffect(() => {
     if (!enabled) {
-      if (_wg) { _wg.pause(); setWgStatus('idle') }
+      if (_wg) { _wg.pause() }
+      wgStatusRef.current = 'idle'
+      setWgStatus('idle')
       return
     }
 
+    // Already ready — re-attach listener and resume
     if (_wgReady && _wg) {
       wgRef.current = _wg
       _wg.setGazeListener(gazeListener)
       _wg.resume()
+      wgStatusRef.current = 'tracking'
       setWgStatus('tracking')
       setWgError(null)
       return
     }
 
+    // begin() is still in flight — register to attach once it resolves
+    if (_wgInitializing) {
+      const attach = () => {
+        if (!_wg) return
+        wgRef.current = _wg
+        _wg.setGazeListener(gazeListener)
+        wgStatusRef.current = 'tracking'
+        setWgStatus('tracking')
+        setWgError(null)
+      }
+      _pendingAttach.add(attach)
+      return () => { _pendingAttach.delete(attach) }
+    }
+
+    // First-time init
     if (initRef.current) return
     initRef.current = true
+    _wgInitializing = true
     setWgError(null)
+    wgStatusRef.current = 'calibrating'
     setWgStatus('calibrating')
 
     import('webgazer').then(module => {
       const wg = module.default ?? module
       _wg = wg
       wgRef.current = wg
+      // Lower video resolution — face mesh is the bottleneck, 320×240 is plenty
+      wg.params.videoWidth = 320
+      wg.params.videoHeight = 240
       wg.clearData()
       wg.saveDataAcrossSessions(false)
       wg.setRegression('weightedRidge')
@@ -391,14 +435,23 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
         .showFaceOverlay(false)
         .showPredictionPoints(false)
         .begin()
-        .then(() => { _wgReady = true })
+        .then(() => {
+          _wgReady = true
+          _wgInitializing = false
+          _pendingAttach.forEach(fn => fn())
+          _pendingAttach.clear()
+        })
         .catch(err => {
+          _wgInitializing = false
+          wgStatusRef.current = 'error'
           setWgStatus('error')
           setWgError(err?.message || 'Camera access denied or unavailable')
           initRef.current = false
           _wg = null
         })
     }).catch(err => {
+      _wgInitializing = false
+      wgStatusRef.current = 'error'
       setWgStatus('error')
       setWgError('Failed to load WebGazer: ' + (err?.message || err))
       initRef.current = false
