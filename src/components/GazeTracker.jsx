@@ -140,15 +140,15 @@ function SuggestionCard({ suggestion, onDismiss }) {
   )
 }
 
-const BUBBLE_LIFETIME = 2600
-const BUBBLE_THROTTLE_MS = 55
-const BUBBLE_MIN_MOVE_PX = 2
+const HEAT_THROTTLE_MS = 30  // draw at most once per 30ms
+const HEAT_RADIUS = 90       // px radius of each gaze sample
+const HEAT_DECAY = 0.005     // alpha removed per frame via destination-out
+const MAX_JUMP_PX = 220      // reject gaze deltas larger than this (blinks/noise)
 
 export default function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, eegMode, elapsed, iframeRef, onSuggestion,
 }) {
   const [gaze, setGaze] = useState(null)
-  const [bubbles, setBubbles] = useState([])
   const [wgStatus, setWgStatus] = useState('idle') // 'idle' | 'loading' | 'calibrating' | 'tracking' | 'error'
   const [wgError, setWgError] = useState(null)
   const [inlinesuggestion, setInlineSuggestion] = useState(null)
@@ -162,27 +162,32 @@ export default function GazeTracker({
   const initRef = useRef(false)
   const wgRef = useRef(null)
   const eegLoadHistory = useRef([30])
-  const lastBubbleTimeRef = useRef(0)
-  const lastBubblePosRef = useRef({ x: 0, y: 0 })
-  const gazeSmoothRef = useRef(null) // exponential moving average for gaze
+  const canvasRef = useRef(null)
+  const lastHeatTimeRef = useRef(0)
+  const gazeSmoothRef = useRef(null)
 
-  const spawnBubble = useCallback((x, y) => {
+  // Draw one heat sample onto the canvas
+  const drawHeat = useCallback((x, y) => {
     const now = Date.now()
-    const dx = x - lastBubblePosRef.current.x
-    const dy = y - lastBubblePosRef.current.y
-    if (now - lastBubbleTimeRef.current < BUBBLE_THROTTLE_MS) return
-    if (Math.sqrt(dx * dx + dy * dy) < BUBBLE_MIN_MOVE_PX) return
+    if (now - lastHeatTimeRef.current < HEAT_THROTTLE_MS) return
+    lastHeatTimeRef.current = now
 
-    lastBubbleTimeRef.current = now
-    lastBubblePosRef.current = { x, y }
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
 
-    const id = now + Math.random()
-    const size = 60 + Math.random() * 40
-    const driftX = (Math.random() - 0.5) * 8
-    const driftY = (Math.random() - 0.5) * 8
+    const grd = ctx.createRadialGradient(x, y, 0, x, y, HEAT_RADIUS)
+    grd.addColorStop(0,    'rgba(255, 245, 50,  0.14)')
+    grd.addColorStop(0.2,  'rgba(255, 130, 0,   0.11)')
+    grd.addColorStop(0.5,  'rgba(220, 20, 20,   0.07)')
+    grd.addColorStop(0.8,  'rgba(140, 0, 50,    0.025)')
+    grd.addColorStop(1,    'rgba(0, 0, 0, 0)')
 
-    setBubbles(prev => [...prev.slice(-30), { id, x, y, size, driftX, driftY }])
-    setTimeout(() => setBubbles(prev => prev.filter(b => b.id !== id)), BUBBLE_LIFETIME + 100)
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.fillStyle = grd
+    ctx.beginPath()
+    ctx.arc(x, y, HEAT_RADIUS, 0, Math.PI * 2)
+    ctx.fill()
   }, [])
 
   useEffect(() => { eegLoadRef.current = eegLoad }, [eegLoad])
@@ -224,15 +229,20 @@ export default function GazeTracker({
 
       wg.setGazeListener((data) => {
         if (!data) return
-        // Exponential moving average to reduce jitter without adding lag
         const prev = gazeSmoothRef.current
-        const alpha = 0.4
+        // Outlier rejection: large jumps are blinks or noise, not real gaze
+        if (prev) {
+          const dist = Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2)
+          if (dist > MAX_JUMP_PX) return
+        }
+        // EMA smoothing — alpha 0.35: more smoothing than before, less lag than 0.25
+        const alpha = 0.35
         const smoothed = prev
           ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
           : { x: data.x, y: data.y }
         gazeSmoothRef.current = smoothed
         setGaze(smoothed)
-        spawnBubble(smoothed.x, smoothed.y)
+        drawHeat(smoothed.x, smoothed.y)
         setWgStatus(s => s === 'calibrating' ? s : 'tracking')
       })
       .showVideo(false)
@@ -251,7 +261,40 @@ export default function GazeTracker({
       setWgError('Failed to load WebGazer: ' + (err?.message || err))
       initRef.current = false
     })
-  }, [enabled, spawnBubble])
+  }, [enabled, drawHeat])
+
+  // Canvas heat map: init size, run decay loop, handle resize
+  useEffect(() => {
+    if (wgStatus !== 'tracking') return
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    const ctx = canvas.getContext('2d')
+
+    let raf
+    const tick = () => {
+      // destination-out reduces existing alpha without adding any background colour
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.fillStyle = `rgba(0,0,0,${HEAT_DECAY})`
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+
+    const onResize = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    window.addEventListener('resize', onResize)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }
+  }, [wgStatus])
 
   // Pause/resume when enabled toggles after init
   useEffect(() => {
@@ -380,30 +423,12 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
 
   return createPortal(
     <>
-      {/* Bubble trail — only when actively tracking (not loading or calibrating) */}
-      {wgStatus === 'tracking' && bubbles.map((bubble) => (
-        <motion.div
-          key={bubble.id}
-          className="pointer-events-none fixed z-50"
-          style={{
-            left: bubble.x - bubble.size / 2,
-            top: bubble.y - bubble.size / 2,
-            width: bubble.size,
-            height: bubble.size,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,240,80,0.95) 0%, rgba(255,110,0,0.82) 30%, rgba(230,30,30,0.55) 60%, rgba(180,0,20,0.2) 80%, transparent 100%)',
-            filter: 'blur(10px)',
-          }}
-          initial={{ opacity: 0, scale: 0.4 }}
-          animate={{
-            opacity: [0, 0.88, 0.88, 0],
-            scale: [0.4, 1, 1, 1.15],
-            x: bubble.driftX,
-            y: bubble.driftY,
-          }}
-          transition={{ duration: BUBBLE_LIFETIME / 1000, times: [0, 0.07, 0.72, 1], ease: 'linear' }}
-        />
-      ))}
+      {/* Canvas heat map — additive gaze accumulation with slow decay */}
+      <canvas
+        ref={canvasRef}
+        className="pointer-events-none fixed inset-0 z-50"
+        style={{ opacity: wgStatus === 'tracking' ? 0.52 : 0 }}
+      />
 
       {/* Analyzing pulse */}
       {isAnalyzing && gaze && (
