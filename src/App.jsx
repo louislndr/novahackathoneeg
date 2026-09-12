@@ -82,7 +82,7 @@ export default function App() {
         if (d.status === 'searching') setEegWsStatus('searching')
         else if (d.status === 'connected') {
           setEegWsStatus('connected')
-          setEegStreamInfo({ name: d.name, channels: d.channels, srate: d.srate, host: d.host })
+          setEegStreamInfo({ name: d.name, channels: d.channels, srate: d.srate, host: d.host, device: d.device })
         } else if (d.status === 'error') setEegWsStatus('error')
         if (typeof d.eegLoad === 'number') setLiveEegLoad(d.eegLoad)
         if (Array.isArray(d.channels)) {

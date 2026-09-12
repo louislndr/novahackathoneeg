@@ -209,6 +209,7 @@ async def handle_client(websocket):
     try:
         await websocket.send(json.dumps({
             "status":   "connected",
+            "device":   "eego",
             "name":     info.name(),
             "channels": n_ch,
             "srate":    srate,
