@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, X, Brain, CheckCircle2 } from 'lucide-react'
+import { Sparkles, X, Brain, CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
 
 const FIXATION_RADIUS_PX = 70
 const FIXATION_MS = 2000
@@ -60,11 +60,11 @@ function CalibrationOverlay({ onDone }) {
           >
             <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
               complete
-                ? 'border-mint-500 bg-mint-500/20'
+                ? 'border-green-400 bg-green-400/20'
                 : 'border-violet-400/60 bg-violet-500/10 hover:border-violet-400'
             }`}>
               {complete
-                ? <CheckCircle2 size={14} className="text-mint-500" />
+                ? <CheckCircle2 size={14} className="text-green-400" />
                 : <span className="text-violet-400/60 text-[10px] font-mono">{count}/3</span>
               }
             </div>
@@ -143,7 +143,8 @@ export default function GazeTracker({
 }) {
   const [gaze, setGaze] = useState(null)
   const [bubbles, setBubbles] = useState([])
-  const [calibrating, setCalibrating] = useState(false)
+  const [wgStatus, setWgStatus] = useState('idle') // 'idle' | 'loading' | 'calibrating' | 'tracking' | 'error'
+  const [wgError, setWgError] = useState(null)
   const [inlinesuggestion, setInlineSuggestion] = useState(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [eegLoad, setEegLoad] = useState(0)
@@ -153,6 +154,7 @@ export default function GazeTracker({
   const lastTriggerRef = useRef(0)
   const lockedRef = useRef(false)
   const initRef = useRef(false)
+  const wgRef = useRef(null)
   const eegLoadHistory = useRef([30])
   const lastBubbleTimeRef = useRef(0)
   const lastBubblePosRef = useRef({ x: 0, y: 0 })
@@ -169,7 +171,6 @@ export default function GazeTracker({
 
     const id = now + Math.random()
     const size = 18 + Math.random() * 20
-    // slight random drift direction
     const driftX = (Math.random() - 0.5) * 14
     const driftY = -(6 + Math.random() * 14)
 
@@ -179,7 +180,6 @@ export default function GazeTracker({
 
   useEffect(() => { eegLoadRef.current = eegLoad }, [eegLoad])
 
-  // Simulate EEG load as a random walk (more organic than formula-based)
   useEffect(() => {
     if (!sessionActive) { setEegLoad(0); return }
     const id = setInterval(() => {
@@ -197,48 +197,49 @@ export default function GazeTracker({
     return () => clearInterval(id)
   }, [sessionActive])
 
-  // Mouse fallback — always active when enabled so bubbles appear immediately
-  useEffect(() => {
-    if (!enabled) return
-    const handler = (e) => {
-      setGaze({ x: e.clientX, y: e.clientY })
-      spawnBubble(e.clientX, e.clientY)
-    }
-    window.addEventListener('mousemove', handler)
-    return () => window.removeEventListener('mousemove', handler)
-  }, [enabled, spawnBubble])
-
-  // Init WebGazer once when enabled (overrides mouse gaze when active)
+  // Init WebGazer via npm package — no mouse fallback
   useEffect(() => {
     if (!enabled || initRef.current) return
+    initRef.current = true
+    setWgStatus('loading')
+    setWgError(null)
 
-    const tryInit = () => {
-      if (!window.webgazer) return false
-      initRef.current = true
-      window.webgazer
-        .setGazeListener((data) => {
-          if (!data) return
-          setGaze({ x: data.x, y: data.y })
-          spawnBubble(data.x, data.y)
-        })
-        .showVideo(false)
-        .showFaceOverlay(false)
-        .showPredictionPoints(false)
-        .begin()
-        .catch(() => {})
-      setCalibrating(true)
-      return true
-    }
+    import('webgazer').then(module => {
+      const wg = module.default ?? module
+      wgRef.current = wg
 
-    if (!tryInit()) {
-      const poll = setInterval(() => { if (tryInit()) clearInterval(poll) }, 200)
-      return () => clearInterval(poll)
-    }
-  }, [enabled])
+      wg.setGazeListener((data) => {
+        if (!data) return
+        setGaze({ x: data.x, y: data.y })
+        spawnBubble(data.x, data.y)
+        setWgStatus(s => s === 'calibrating' ? s : 'tracking')
+      })
+      .showVideo(false)
+      .showFaceOverlay(false)
+      .showPredictionPoints(false)
+      .begin()
+      .catch(err => {
+        setWgStatus('error')
+        setWgError(err?.message || 'Camera access denied or unavailable')
+        initRef.current = false
+      })
 
+      setWgStatus('calibrating')
+    }).catch(err => {
+      setWgStatus('error')
+      setWgError('Failed to load WebGazer: ' + (err?.message || err))
+      initRef.current = false
+    })
+  }, [enabled, spawnBubble])
+
+  // Pause/resume when enabled toggles after init
   useEffect(() => {
-    if (!initRef.current || !window.webgazer) return
-    enabled ? window.webgazer.resume() : window.webgazer.pause()
+    if (!wgRef.current) return
+    if (enabled) {
+      wgRef.current.resume()
+    } else {
+      wgRef.current.pause()
+    }
   }, [enabled])
 
   // Fixation detection
@@ -273,7 +274,6 @@ export default function GazeTracker({
 
     const currentLoad = eegLoadRef.current
 
-    // Try to get element from iframe if same-origin, fall back to URL-based
     let elementLabel = 'unknown element'
     let elementContext = ''
 
@@ -297,7 +297,7 @@ export default function GazeTracker({
           }
         }
       } catch {
-        // Cross-origin — expected, use coordinate-based fallback
+        // Cross-origin — expected
       }
     }
 
@@ -355,19 +355,20 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
 
   if (!enabled) return null
 
+  const calibrating = wgStatus === 'calibrating'
+
   return createPortal(
     <>
-      {/* Bubble trail */}
-      {!calibrating && bubbles.map((bubble) => (
+      {/* Bubble trail — only when actively tracking (not loading or calibrating) */}
+      {wgStatus === 'tracking' && bubbles.map((bubble) => (
         <motion.div
           key={bubble.id}
           className="pointer-events-none fixed z-50"
           style={{ left: bubble.x - bubble.size / 2, top: bubble.y - bubble.size / 2 }}
           initial={{ opacity: 0.82, scale: 0.18, x: 0, y: 0 }}
           animate={{ opacity: 0, scale: 1, x: bubble.driftX, y: bubble.driftY }}
-          transition={{ duration: BUBBLE_LIFETIME / 1000, ease: [0.15, 0, 0.85, 1] }}
+          transition={{ duration: BUBBLE_LIFETIME / 1000, ease: [0.15, 0, 0.85,1] }}
         >
-          {/* Soap bubble shell */}
           <div
             style={{
               width: bubble.size,
@@ -382,7 +383,6 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
               overflow: 'hidden',
             }}
           >
-            {/* Highlight glint */}
             <div
               style={{
                 position: 'absolute',
@@ -395,7 +395,6 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
                 filter: 'blur(1.5px)',
               }}
             />
-            {/* Secondary small glint */}
             <div
               style={{
                 position: 'absolute',
@@ -422,25 +421,55 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
         />
       )}
 
-      {/* EEG load badge */}
-      {sessionActive && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="fixed top-16 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0b18]/90 backdrop-blur border border-violet-500/20 shadow"
-        >
-          <motion.div animate={eegLoad > LOAD_THRESHOLD ? { scale: [1, 1.35, 1] } : {}} transition={{ repeat: Infinity, duration: 0.8 }}>
-            <Brain size={11} className={eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400/60'} />
+      {/* Status badge — loading / error / tracking */}
+      <AnimatePresence>
+        {wgStatus === 'loading' && (
+          <motion.div
+            key="wg-loading"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="fixed top-16 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0b18]/90 backdrop-blur border border-violet-500/20 shadow"
+          >
+            <Loader2 size={11} className="text-violet-400 animate-spin" />
+            <span className="text-[11px] text-white/45">Loading eye tracking…</span>
           </motion.div>
-          <span className="text-[11px] font-mono text-white/45">
-            EEG{' '}
-            <span className={`font-semibold ${eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400'}`}>
-              {eegLoad}
+        )}
+
+        {wgStatus === 'error' && (
+          <motion.div
+            key="wg-error"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="fixed top-16 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0b18]/90 backdrop-blur border border-red-500/30 shadow"
+          >
+            <AlertCircle size={11} className="text-red-400" />
+            <span className="text-[11px] text-red-400/80">{wgError || 'Eye tracking failed'}</span>
+          </motion.div>
+        )}
+
+        {sessionActive && wgStatus === 'tracking' && (
+          <motion.div
+            key="wg-eeg"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="fixed top-16 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0b18]/90 backdrop-blur border border-violet-500/20 shadow"
+          >
+            <motion.div animate={eegLoad > LOAD_THRESHOLD ? { scale: [1, 1.35, 1] } : {}} transition={{ repeat: Infinity, duration: 0.8 }}>
+              <Brain size={11} className={eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400/60'} />
+            </motion.div>
+            <span className="text-[11px] font-mono text-white/45">
+              EEG{' '}
+              <span className={`font-semibold ${eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400'}`}>
+                {eegLoad}
+              </span>
+              <span className="text-white/20">/100</span>
             </span>
-            <span className="text-white/20">/100</span>
-          </span>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Inline suggestion card */}
       <AnimatePresence>
@@ -449,9 +478,9 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
         )}
       </AnimatePresence>
 
-      {/* Calibration */}
+      {/* Calibration overlay */}
       <AnimatePresence>
-        {calibrating && <CalibrationOverlay onDone={() => setCalibrating(false)} />}
+        {calibrating && <CalibrationOverlay onDone={() => setWgStatus('tracking')} />}
       </AnimatePresence>
     </>,
     document.body
