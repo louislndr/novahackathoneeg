@@ -7,15 +7,17 @@ function Toggle({ value, onChange }) {
       role="switch"
       aria-checked={value}
       onClick={() => onChange(!value)}
-      whileTap={{ scale: 0.95 }}
-      className={`relative w-11 h-6 rounded-full border transition-colors duration-200 ${
-        value ? 'bg-mint-500 border-mint-500' : 'bg-white/[0.06] border-white/[0.1]'
+      whileTap={{ scale: 0.96 }}
+      className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 ${
+        value ? 'bg-mint-500' : 'bg-white/[0.1]'
       }`}
     >
       <motion.span
-        animate={{ x: value ? 20 : 2 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-        className="absolute top-1 w-4 h-4 rounded-full bg-white shadow"
+        animate={{ x: value ? 22 : 2 }}
+        transition={{ type: 'spring', stiffness: 600, damping: 35 }}
+        className={`absolute top-[3px] w-[18px] h-[18px] rounded-full shadow-sm transition-colors duration-200 ${
+          value ? 'bg-white' : 'bg-white/70'
+        }`}
       />
     </motion.button>
   )
