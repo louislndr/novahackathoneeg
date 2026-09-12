@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Monitor, FileText, Radio, Activity, Brain, Eye } from 'lucide-react'
+import { Monitor, FileText, Radio, Brain, Eye } from 'lucide-react'
 
 const NAV = [
   { id: 'study', label: 'Live Study', icon: Monitor },
@@ -7,14 +7,33 @@ const NAV = [
   { id: 'signal', label: 'Signal Setup', icon: Radio },
 ]
 
+function Logo() {
+  return (
+    <div className="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/25 flex-shrink-0">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 1L3.5 8H6.5L5.5 13L10.5 6H7.5L8 1Z" fill="#1d100c"/>
+      </svg>
+    </div>
+  )
+}
+
+function StatusDot({ active }) {
+  return (
+    <span className="relative flex h-2 w-2 flex-shrink-0">
+      {active && (
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60" />
+      )}
+      <span className={`relative inline-flex rounded-full h-2 w-2 ${active ? 'bg-green-400' : 'bg-red-400/50'}`} />
+    </span>
+  )
+}
+
 export default function Sidebar({ screen, setScreen, sessionActive, hasResults, eegMode, gazeEnabled }) {
   return (
     <aside className="app-sidebar w-52 flex-shrink-0 border-r border-white/[0.08] flex flex-col">
       <div className="h-14 flex items-center px-4 border-b border-white/[0.05]">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/25">
-            <Activity size={14} strokeWidth={2.5} className="text-[#1d100c]" />
-          </div>
+          <Logo />
           <span className="font-semibold text-[15px] tracking-tight font-display">FrictionFix</span>
         </div>
       </div>
@@ -53,25 +72,21 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults, 
       </nav>
 
       {/* Signals status */}
-      <div className="px-4 py-3 border-t border-white/[0.05] space-y-2">
+      <div className="px-4 py-3 border-t border-white/[0.05] space-y-2.5">
         <p className="text-[11px] font-medium text-white/25">Signals</p>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-white/35 text-xs">
             <Brain size={11} />
             EEG
           </div>
-          <span className={`text-[11px] font-medium ${eegMode === 'simulated' ? 'text-brand-400' : 'text-white/20'}`}>
-            {eegMode === 'simulated' ? 'Simulated' : 'Off'}
-          </span>
+          <StatusDot active={eegMode === 'simulated'} />
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-white/35 text-xs">
             <Eye size={11} />
             Eye tracking
           </div>
-          <span className={`text-[11px] font-medium ${gazeEnabled ? 'text-brand-500' : 'text-white/20'}`}>
-            {gazeEnabled ? 'Active' : 'Off'}
-          </span>
+          <StatusDot active={gazeEnabled} />
         </div>
       </div>
 
