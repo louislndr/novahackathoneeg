@@ -4,7 +4,7 @@
 - [x] Add the shared OpenAI-style font and translucent visual system.
 - [x] Add the animated ShaderGradient background to the app shell.
 - [x] Build the app and inspect the changed UI.
-- [ ] Commit and push the logical changes.
+- [x] Commit and push the logical changes.
 
 ## Review
 
