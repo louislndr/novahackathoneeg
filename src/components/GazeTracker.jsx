@@ -133,10 +133,15 @@ function SuggestionCard({ suggestion, onDismiss }) {
   )
 }
 
+const BUBBLE_LIFETIME = 1300
+const BUBBLE_THROTTLE_MS = 90
+const BUBBLE_MIN_MOVE_PX = 5
+
 export default function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, eegMode, elapsed, iframeRef, onSuggestion,
 }) {
   const [gaze, setGaze] = useState(null)
+  const [bubbles, setBubbles] = useState([])
   const [calibrating, setCalibrating] = useState(false)
   const [inlinesuggestion, setInlineSuggestion] = useState(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -148,6 +153,28 @@ export default function GazeTracker({
   const lockedRef = useRef(false)
   const initRef = useRef(false)
   const eegLoadHistory = useRef([30])
+  const lastBubbleTimeRef = useRef(0)
+  const lastBubblePosRef = useRef({ x: 0, y: 0 })
+
+  const spawnBubble = useCallback((x, y) => {
+    const now = Date.now()
+    const dx = x - lastBubblePosRef.current.x
+    const dy = y - lastBubblePosRef.current.y
+    if (now - lastBubbleTimeRef.current < BUBBLE_THROTTLE_MS) return
+    if (Math.sqrt(dx * dx + dy * dy) < BUBBLE_MIN_MOVE_PX) return
+
+    lastBubbleTimeRef.current = now
+    lastBubblePosRef.current = { x, y }
+
+    const id = now + Math.random()
+    const size = 18 + Math.random() * 20
+    // slight random drift direction
+    const driftX = (Math.random() - 0.5) * 14
+    const driftY = -(6 + Math.random() * 14)
+
+    setBubbles(prev => [...prev.slice(-14), { id, x, y, size, driftX, driftY }])
+    setTimeout(() => setBubbles(prev => prev.filter(b => b.id !== id)), BUBBLE_LIFETIME + 100)
+  }, [])
 
   useEffect(() => { eegLoadRef.current = eegLoad }, [eegLoad])
 
@@ -177,7 +204,11 @@ export default function GazeTracker({
       if (!window.webgazer) return false
       initRef.current = true
       window.webgazer
-        .setGazeListener((data) => { if (data) setGaze({ x: data.x, y: data.y }) })
+        .setGazeListener((data) => {
+          if (!data) return
+          setGaze({ x: data.x, y: data.y })
+          spawnBubble(data.x, data.y)
+        })
         .showVideo(false)
         .showFaceOverlay(false)
         .showPredictionPoints(false)
@@ -314,16 +345,60 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
 
   return (
     <>
-      {/* Gaze dot */}
-      {gaze && !calibrating && (
+      {/* Bubble trail */}
+      {!calibrating && bubbles.map((bubble) => (
         <motion.div
+          key={bubble.id}
           className="pointer-events-none fixed z-50"
-          animate={{ x: gaze.x - 7, y: gaze.y - 7 }}
-          transition={{ type: 'spring', stiffness: 600, damping: 40, mass: 0.2 }}
+          style={{ left: bubble.x - bubble.size / 2, top: bubble.y - bubble.size / 2 }}
+          initial={{ opacity: 0.82, scale: 0.18, x: 0, y: 0 }}
+          animate={{ opacity: 0, scale: 1, x: bubble.driftX, y: bubble.driftY }}
+          transition={{ duration: BUBBLE_LIFETIME / 1000, ease: [0.15, 0, 0.85, 1] }}
         >
-          <div className="w-3.5 h-3.5 rounded-full bg-violet-400/60 border border-violet-300/80 shadow-lg shadow-violet-500/40" />
+          {/* Soap bubble shell */}
+          <div
+            style={{
+              width: bubble.size,
+              height: bubble.size,
+              borderRadius: '50%',
+              border: '1.5px solid rgba(167,139,250,0.55)',
+              background:
+                'radial-gradient(circle at 32% 28%, rgba(255,255,255,0.18) 0%, rgba(139,92,246,0.06) 45%, transparent 70%)',
+              boxShadow:
+                '0 2px 14px rgba(139,92,246,0.22), inset 0 1px 4px rgba(255,255,255,0.12)',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Highlight glint */}
+            <div
+              style={{
+                position: 'absolute',
+                top: '18%',
+                left: '22%',
+                width: '26%',
+                height: '18%',
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.55)',
+                filter: 'blur(1.5px)',
+              }}
+            />
+            {/* Secondary small glint */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '22%',
+                right: '20%',
+                width: '12%',
+                height: '10%',
+                borderRadius: '50%',
+                background: 'rgba(200,180,255,0.35)',
+                filter: 'blur(1px)',
+              }}
+            />
+          </div>
         </motion.div>
-      )}
+      ))}
 
       {/* Analyzing pulse */}
       {isAnalyzing && gaze && (
