@@ -1,0 +1,77 @@
+{
+  "task": "flip_cup",
+  "label_1": "failure",
+  "source": "provided_recordings",
+  "design": "Train session 01, held-out session 02; one participant; no tuning on test results",
+  "window": "four seconds before cue; mean of two 2-second windows",
+  "channels": [
+    "F3",
+    "Fz",
+    "F4",
+    "FC1",
+    "FC2",
+    "C3",
+    "Cz",
+    "C4",
+    "P3",
+    "Pz",
+    "P4",
+    "Oz"
+  ],
+  "feature_names": [
+    "log_theta",
+    "log_alpha",
+    "log_beta",
+    "theta_fraction",
+    "alpha_fraction",
+    "theta_beta_log_ratio"
+  ],
+  "train": {
+    "total_trials": 50,
+    "usable_trials": 48,
+    "rejected": {
+      "poor_signal": 2
+    },
+    "usable_outcomes": {
+      "1": 34,
+      "0": 14
+    },
+    "behavioral_labels_verified": true
+  },
+  "test": {
+    "total_trials": 50,
+    "usable_trials": 50,
+    "rejected": {},
+    "usable_outcomes": {
+      "0": 26,
+      "1": 24
+    },
+    "behavioral_labels_verified": true
+  },
+  "eeg_model": {
+    "accuracy": 0.56,
+    "balanced_accuracy": 0.5480769230769231,
+    "roc_auc": 0.5657051282051282,
+    "confusion_matrix_actual_rows_predicted_columns": [
+      [
+        22,
+        4
+      ],
+      [
+        18,
+        6
+      ]
+    ]
+  },
+  "training_majority_baseline": {
+    "predicted_class": 1,
+    "accuracy": 0.48,
+    "balanced_accuracy": 0.5
+  },
+  "limitations": [
+    "Single participant and two sessions; not population validation.",
+    "Flip-cup outcomes do not label website confusion.",
+    "This baseline does not measure EEG benefit beyond website behaviour.",
+    "Heuristic quality rejection may change the evaluated trial population."
+  ]
+}

@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frictionfix-backend"
+version = "0.1.0"
+description = "Local EEG-assisted usability experiment backend"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1", "uvicorn[standard]>=0.30,<1", "numpy>=2.1,<3",
+  "scipy>=1.14,<2", "scikit-learn>=1.5,<2", "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+eeg = ["mne>=1.9,<2", "antio>=0.5,<1", "pylsl>=1.17,<2"]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+frictionfix-eeg = "frictionfix.bridge:main"
+frictionfix-evaluate = "frictionfix.evaluate:main"
+
+[tool.setuptools.packages.find]
+include = ["frictionfix*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
