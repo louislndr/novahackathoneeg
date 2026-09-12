@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Coastal Home Services</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: #fff; color: #232323; }
+  a { color: inherit; }
+
+  /* ===== PATCH 1: Nav + Hero — hierarchy inversion ===== */
+  header { display: flex; justify-content: space-between; align-items: center; padding: 16px 32px; border-bottom: 1px solid #eee; }
+  .logo { font-weight: bold; font-size: 17px; color: #1b5e4f; }
+  nav { display: flex; gap: 22px; }
+  .nav-btn { background: none; border: none; font-size: 13px; color: #444; cursor: pointer; padding: 4px 2px; }
+  .nav-btn.active { color: #1b5e4f; font-weight: bold; border-bottom: 2px solid #1b5e4f; }
+
+  .hero { background: #f4f8f6; padding: 50px 32px; text-align: center; position: relative; }
+  .est-badge { display: inline-block; background: #1b5e4f; color: #fff; font-size: 20px; font-weight: bold; padding: 10px 26px; border-radius: 30px; margin-bottom: 18px; }
+  .hero h1 { font-size: 24px; margin: 0 0 8px; color: #1b1f1d; }
+  .hero p { color: #667; font-size: 13.5px; margin-bottom: 18px; }
+  .cta-tiny { background: #eef3f1; color: #7a8a84; border: 1px solid #d7e2dd; font-size: 10.5px; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
+
+  /* ===== PATCH 2: Services — "most popular" contradiction, misaligned cards ===== */
+  .services { max-width: 980px; margin: 0 auto; padding: 40px 24px; }
+  .services h2 { text-align: center; font-size: 19px; margin-bottom: 26px; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
+  .card { border: 1px solid #e6e6e6; border-radius: 8px; padding: 16px; position: relative; }
+  .card.tall { padding-bottom: 40px; }
+  .card .badge { position: absolute; top: -10px; left: 14px; background: #d98b2b; color: #fff; font-size: 9.5px; padding: 2px 8px; border-radius: 8px; }
+  .card .icon { width: 30px; height: 30px; border-radius: 6px; background: #eef3f1; margin-bottom: 10px; }
+  .goofy-photo { width: 100%; height: 90px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; font-size: 42px; transform: rotate(-3deg); overflow: hidden; }
+  .goofy-photo.plumber { background: radial-gradient(circle, #ffe08a, #ff9a3c); }
+  .goofy-photo.electric { background: radial-gradient(circle, #d9e8ff, #6c9fff); transform: rotate(3deg); }
+  .goofy-avatar { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle, #ffd9ec, #ff8fc7); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; transform: rotate(-8deg); }
+  .card h3 { font-size: 13.5px; margin: 0 0 6px; }
+  .card p { font-size: 11.5px; color: #777; line-height: 1.5; min-height: 44px; }
+  .card .price { font-weight: bold; font-size: 15px; margin-top: 8px; }
+  .card button { margin-top: 10px; font-size: 11px; padding: 6px 12px; border-radius: 5px; border: 1px solid #1b5e4f; background: #fff; color: #1b5e4f; cursor: pointer; }
+
+  /* ===== PATCH 3: Trust / testimonials — sample size + blurry partner logos ===== */
+  .trust { background: #faf9f6; padding: 40px 24px; }
+  .trust-inner { max-width: 900px; margin: 0 auto; text-align: center; }
+  .rating-big { font-size: 15px; margin-bottom: 2px; }
+  .rating-big b { font-size: 26px; color: #d9a221; }
+  .rating-sub { font-size: 10.5px; color: #999; margin-bottom: 26px; }
+  .testimonial { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 18px 22px; max-width: 560px; margin: 0 auto 26px; text-align: left; display: flex; gap: 12px; }
+  .testimonial .avatar { width: 40px; height: 40px; border-radius: 50%; background: #cfd8d4; flex-shrink: 0; }
+  .testimonial .who { font-size: 12px; font-weight: bold; margin-top: 6px; }
+  .testimonial .quote { font-size: 12.5px; color: #444; line-height: 1.6; font-style: italic; }
+  .carousel-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 30px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #ddd; border: none; cursor: pointer; }
+  .dot.active { background: #1b5e4f; }
+  .partners { display: flex; justify-content: center; gap: 26px; align-items: center; flex-wrap: wrap; }
+  .partner-logo { height: 22px; width: 70px; background: #e2e2e2; border-radius: 3px; }
+  .partner-logo.blurry { filter: blur(1px); opacity: .7; height: 30px; width: 90px; }
+  .partner-logo.small { height: 14px; width: 46px; }
+
+  /* ===== PATCH 4: Contact / footer — contradicting response-time claims ===== */
+  .contact { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+  .contact h2 { text-align: center; font-size: 18px; }
+  .contact .promise { text-align: center; font-size: 12.5px; color: #1b5e4f; font-weight: bold; margin-bottom: 22px; }
+  .contact-methods { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+  .method { border: 1px solid #e6e6e6; border-radius: 8px; padding: 14px; text-align: center; }
+  .method .lbl { font-size: 12px; font-weight: bold; margin-bottom: 4px; }
+  .method button { margin-top: 8px; font-size: 10.5px; padding: 5px 10px; border-radius: 4px; border: 1px solid #1b5e4f; background: #1b5e4f; color: #fff; cursor: pointer; }
+
+  footer { background: #1b1f1d; color: #9aa39e; padding: 26px 24px; font-size: 10.5px; }
+  footer .footer-inner { max-width: 900px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; }
+  .social-row { display: flex; gap: 10px; }
+  .social-icon { width: 22px; height: 22px; border-radius: 50%; background: #2a2f2c; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; }
+  .fineprint { max-width: 620px; line-height: 1.7; color: #767d79; }
+
+  #msg { text-align: center; font-size: 12px; color: #b45309; min-height: 18px; padding: 6px 0; }
+
+  /* ===== PATCH 5: junk overlays — fake prize popup, security scare banner,
+     aggressive chat bubble, fake video, fake live-viewer ticker. All inert:
+     every button/link here just shows the same demo message, nothing real. ===== */
+  @keyframes pulse-glow { 0%,100% { box-shadow: 0 0 0 0 rgba(255,90,0,.5); } 50% { box-shadow: 0 0 0 14px rgba(255,90,0,0); } }
+  @keyframes flash-bg { 0%,100% { background: #fff3cd; } 50% { background: #ffe08a; } }
+  @keyframes bounce-in { 0% { transform: translateY(0); } 50% { transform: translateY(-6px); } 100% { transform: translateY(0); } }
+  @keyframes blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0.25; } }
+
+  .prize-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 90; display: flex; align-items: center; justify-content: center; }
+  .prize-box { background: linear-gradient(135deg,#ffd23f,#ff9a3c); border: 4px solid #fff; border-radius: 14px; padding: 26px 34px; max-width: 340px; text-align: center; position: relative; animation: pulse-glow 1.6s infinite; }
+  .prize-box .close-x { position: absolute; top: 4px; right: 8px; font-size: 11px; color: rgba(255,255,255,.55); cursor: pointer; background: none; border: none; padding: 4px; }
+  .prize-box h2 { font-size: 19px; margin: 6px 0 6px; color: #5c2b00; }
+  .prize-box p { font-size: 12.5px; color: #5c2b00; margin-bottom: 14px; }
+  .prize-claim-btn { background: #c0392b; color: #fff; border: none; padding: 11px 22px; border-radius: 24px; font-weight: bold; font-size: 13px; cursor: pointer; animation: bounce-in 1s infinite; }
+  .prize-timer { font-size: 11px; color: #7a3a00; margin-top: 8px; font-weight: bold; }
+
+  .scare-banner { animation: flash-bg 1s infinite; border: 1px solid #e0b84a; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: #5c4400; margin: 0; }
+  .scare-banner button { background: #d9483a; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-size: 11.5px; font-weight: bold; cursor: pointer; flex-shrink: 0; }
+
+  .chat-bubble { position: fixed; bottom: 18px; right: 18px; z-index: 80; background: #fff; border: 1px solid #ddd; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.18); padding: 12px 14px; max-width: 220px; animation: bounce-in 2.2s infinite; cursor: pointer; }
+  .chat-bubble .row { display: flex; align-items: center; gap: 8px; }
+  .chat-bubble .dot { width: 8px; height: 8px; border-radius: 50%; background: #3fae5a; animation: blink 1s infinite; }
+  .chat-bubble .txt { font-size: 11.5px; color: #333; line-height: 1.4; }
+  .chat-bubble .close-x { position: absolute; top: -6px; right: -6px; background: #999; color: #fff; width: 16px; height: 16px; border-radius: 50%; border: none; font-size: 9px; cursor: pointer; }
+
+  .ticker { background: #1b1f1d; color: #ffd23f; font-size: 11px; text-align: center; padding: 5px; letter-spacing: .02em; }
+  .ticker b { animation: blink 1.2s infinite; }
+
+  .fake-video { position: relative; max-width: 260px; margin: 20px auto 0; border-radius: 8px; overflow: hidden; border: 3px solid #ff5a00; cursor: pointer; }
+  .fake-video .thumb { height: 130px; background: linear-gradient(135deg,#333,#111); display: flex; align-items: center; justify-content: center; }
+  .fake-video .play { width: 46px; height: 46px; border-radius: 50%; background: rgba(255,90,0,.9); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; animation: pulse-glow 1.6s infinite; }
+  .fake-video .cap { background: #ff5a00; color: #fff; font-size: 10.5px; font-weight: bold; text-align: center; padding: 5px; }
+</style>
+</head>
+<body>
+
+<!-- Junk overlay: fake prize popup. Purely decorative -- buttons do nothing but show the demo message. -->
+<div class="prize-overlay" id="prizeOverlay" aria-label="Popup claiming the visitor won a prize, a common scam pattern that should not appear on a legitimate site">
+  <div class="prize-box">
+    <button class="close-x" aria-label="Tiny, low-contrast close button, deliberately hard to notice" onclick="closePrize()">✕ no thanks</button>
+    <h2>🎉 CONGRATULATIONS!</h2>
+    <p>You've been randomly selected for a <b>FREE $500 Home Repair Voucher!</b> Claim before this offer disappears.</p>
+    <button class="prize-claim-btn" aria-label="Claim Now button on a fake prize popup" onclick="pick('Claim Now (fake prize popup)')">CLAIM NOW</button>
+    <div class="prize-timer" id="prizeTimer" aria-label="Fake countdown creating false urgency">Offer expires in 04:59</div>
+  </div>
+</div>
+
+<div class="ticker" aria-label="Fake live-visitor urgency ticker">🔥 <b>7 people</b> are viewing this page right now · 3 booked in the last hour</div>
+
+<!-- PATCH 1: nav items that all sound like the same page; huge decorative badge outranks the real CTA -->
+<header>
+  <div class="logo">🏠 Coastal Home Services</div>
+  <nav>
+    <button class="nav-btn active" onclick="selNav(this)">Services</button>
+    <button class="nav-btn" onclick="selNav(this)" aria-label="What We Do, unclear how this differs from Services">What We Do</button>
+    <button class="nav-btn" onclick="selNav(this)" aria-label="Solutions, unclear how this differs from Services">Solutions</button>
+    <button class="nav-btn" onclick="selNav(this)" aria-label="Offerings, unclear how this differs from Services">Offerings</button>
+    <button class="nav-btn" onclick="selNav(this)">Contact</button>
+  </nav>
+</header>
+
+<div class="hero">
+  <div class="est-badge" aria-label="Large decorative badge, purely informational, competing for attention with the actual call to action below">Est. 2019</div>
+  <h1>Reliable Home Repairs, Done Right the First Time</h1>
+  <p>Serving the coastal region with licensed, insured technicians for over 5 years.</p>
+  <button class="cta-tiny" aria-label="Get Started button, the actual primary call to action, styled smaller and lower-contrast than the decorative Est. 2019 badge above" onclick="pick('Get Started')">Get Started</button>
+</div>
+
+<div class="scare-banner" aria-label="Fake browser security warning banner, a common malvertising pattern that should not appear on a legitimate business site">
+  <span>⚠️ Your browser extension is out of date. Update now to stay protected.</span>
+  <button aria-label="Update Now button on a fake security warning" onclick="pick('Update Now (fake security warning)')">Update Now</button>
+</div>
+
+<!-- PATCH 2: "Most Popular" on the most expensive, least-detailed plan; inconsistent icons; misaligned card heights -->
+<div class="services">
+  <h2>Our Services</h2>
+  <div class="cards">
+    <div class="card">
+      <div class="goofy-photo plumber" role="img" aria-label="Goofy oversized plunger photo on a plumbing repair service card, out of place for a professional home services business">🪠</div>
+      <h3>Plumbing Repair</h3>
+      <p>Leaks, clogs, fixture installs, and emergency shutoffs.</p>
+      <div class="price">From $89</div>
+      <button onclick="pick('Book: Plumbing Repair')">Book Now</button>
+    </div>
+    <div class="card tall">
+      <span class="badge" aria-label="Most Popular badge placed on the most expensive plan, which also has the least descriptive details">MOST POPULAR</span>
+      <h3>Full Home Care Plan</h3>
+      <p>Comprehensive coverage.</p>
+      <div class="price">$249/mo</div>
+      <button onclick="pick('Book: Full Home Care Plan')">Book Now</button>
+    </div>
+    <div class="card">
+      <div class="goofy-photo electric" role="img" aria-label="Goofy zapped-face-with-sunglasses photo on an electrical inspection service card, out of place for a professional home services business">🤪⚡</div>
+      <h3>Electrical Inspection</h3>
+      <p>Panel checks, outlet testing, and code-compliance review.</p>
+      <div class="price">From $120</div>
+      <button onclick="pick('Book: Electrical Inspection')">Book Now</button>
+    </div>
+    <div class="card">
+      <h3>HVAC Tune-Up</h3>
+      <p>Seasonal maintenance for heating and cooling systems, filter replacement included.</p>
+      <div class="price">From $95</div>
+      <button onclick="pick('Book: HVAC Tune-Up')">Book Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- PATCH 3: 4.9 rating built on 3 reviews; testimonial avatar looks like stock corporate art; blurry/mismatched partner logos -->
+<div class="trust">
+  <div class="trust-inner">
+    <div class="rating-big"><b>4.9</b> / 5 average rating</div>
+    <div class="rating-sub" aria-label="Extremely precise-looking rating based on an unusually small sample size">based on 3 reviews</div>
+
+    <div class="testimonial">
+      <div class="goofy-avatar" role="img" aria-label="Goofy clown-face avatar used as the photo for a Verified Homeowner testimonial, an odd mismatch for a trust-building review">🤡</div>
+      <div>
+        <div class="quote">"Absolutely phenomenal service, exceeded every expectation, would recommend to anyone in the region without hesitation."</div>
+        <div class="who">— J. Whitfield, Verified Homeowner</div>
+      </div>
+    </div>
+    <div class="carousel-dots">
+      <button class="dot active" aria-label="Testimonial 1 of 3" onclick="selDot(this)"></button>
+      <button class="dot" aria-label="Testimonial 2 of 3" onclick="selDot(this)"></button>
+      <button class="dot" aria-label="Testimonial 3 of 3" onclick="selDot(this)"></button>
+    </div>
+
+    <div class="partners" aria-label="Partner logo row with inconsistent sizing and sharpness, suggesting these are not verified partnerships">
+      <div class="partner-logo blurry"></div>
+      <div class="partner-logo"></div>
+      <div class="partner-logo small"></div>
+      <div class="partner-logo blurry"></div>
+      <div class="partner-logo"></div>
+    </div>
+
+    <div class="fake-video" aria-label="Autoplay-style fake video ad overlapping the testimonials section, unrelated to home services" onclick="pick('Play (fake video ad)')">
+      <div class="thumb"><div class="play">▶</div></div>
+      <div class="cap">WATCH: You won't believe this one trick →</div>
+    </div>
+  </div>
+</div>
+
+<!-- PATCH 4: 4 equally-weighted contact methods with no clear preferred path; response-time claim contradicted in the footer -->
+<div class="contact">
+  <h2>Get in Touch</h2>
+  <div class="promise" aria-label="Prominent response time promise, contradicted by the footer fine print below">We respond within 1 hour, guaranteed.</div>
+  <div class="contact-methods">
+    <div class="method"><div class="lbl">📞 Call Us</div><button onclick="pick('Call Us')">Call Now</button></div>
+    <div class="method"><div class="lbl">✉️ Email Us</div><button onclick="pick('Email Us')">Send Email</button></div>
+    <div class="method"><div class="lbl">💬 Live Chat</div><button onclick="pick('Live Chat')">Start Chat</button></div>
+    <div class="method"><div class="lbl">📝 Request Form</div><button onclick="pick('Request Form')">Open Form</button></div>
+  </div>
+  <p id="msg"></p>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="fineprint" aria-label="Fine print directly contradicting the 1-hour response guarantee shown above in the contact section">
+      © 2026 Coastal Home Services. Response times may vary and can take up to 3–5 business days
+      depending on technician availability and season. "Guaranteed" response applies only to
+      new customers in select zip codes; existing customers should call the office directly.
+    </div>
+    <div class="social-row">
+      <div class="social-icon" aria-label="Icon labeled Instagram but showing a bird icon typically associated with Twitter/X" title="Instagram">🐦</div>
+      <div class="social-icon" aria-label="Facebook icon">f</div>
+      <div class="social-icon" aria-label="YouTube icon">▶</div>
+    </div>
+  </div>
+</footer>
+
+<div class="chat-bubble" id="chatBubble" aria-label="Aggressive unsolicited chat bubble offering a discount, a common engagement-bait pattern" onclick="pick('Chat Now (fake chat bubble)')">
+  <button class="close-x" aria-label="Close the chat bubble" onclick="event.stopPropagation(); closeChat()">✕</button>
+  <div class="row">
+    <span class="dot"></span>
+    <span class="txt"><b>Sarah</b> from support is online — chat now for a special discount! 👋</span>
+  </div>
+</div>
+
+<script>
+  function selNav(el){ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+  function selDot(el){ document.querySelectorAll('.dot').forEach(d=>d.classList.remove('active')); el.classList.add('active'); }
+  function pick(label){ document.getElementById('msg').textContent = '"'+label+'" clicked. (Demo page — nothing is actually booked or sent.)'; }
+  function closePrize(){ document.getElementById('prizeOverlay').style.display = 'none'; }
+  function closeChat(){ document.getElementById('chatBubble').style.display = 'none'; }
+
+  // Countdown that quietly resets -- never actually reaches zero (same dark pattern as a real scam timer).
+  let prizeSeconds = 299;
+  setInterval(() => {
+    prizeSeconds -= 1;
+    if (prizeSeconds <= 0) prizeSeconds = 299;
+    const m = Math.floor(prizeSeconds / 60).toString().padStart(2, '0');
+    const s = (prizeSeconds % 60).toString().padStart(2, '0');
+    const el = document.getElementById('prizeTimer');
+    if (el) el.textContent = 'Offer expires in ' + m + ':' + s;
+  }, 1000);
+</script>
+</body>
+</html>

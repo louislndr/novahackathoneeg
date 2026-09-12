@@ -86,10 +86,11 @@ function WebcamFeed({ active }) {
   )
 }
 
+// Served from this same app's /public folder (same-origin) so GazeTracker's
+// iframe.contentDocument.elementFromPoint() can actually resolve a real DOM element
+// instead of falling back to a vague page-quadrant guess (see runAnalysis below).
 const DEMO_SITES = [
-  { label: 'Wikipedia', url: 'https://en.wikipedia.org/wiki/Electroencephalography' },
-  { label: 'MDN Web Docs', url: 'https://developer.mozilla.org/en-US/docs/Web/HTML' },
-  { label: 'Example.com', url: 'https://example.com' },
+  { label: 'Coastal Home Services', url: window.location.origin + '/demo-sites/nimbus-pricing/index.html' },
 ]
 
 function EmptyPreview({ onLoad }) {

@@ -39,6 +39,7 @@ export default function App() {
   const [suggestions, setSuggestions] = useState([])
   const [startTime, setStartTime] = useState(null)
   const [elapsed, setElapsed] = useState(0)
+  const [hasRunSession, setHasRunSession] = useState(false)
 
   useEffect(() => {
     if (!sessionActive) return
@@ -56,7 +57,8 @@ export default function App() {
 
   function stopSession() {
     setSessionActive(false)
-    if (suggestions.length > 0) setScreen('results')
+    setHasRunSession(true)
+    setScreen('results')
   }
 
   function addSuggestion(entry) {
@@ -68,6 +70,7 @@ export default function App() {
     setSuggestions([])
     setElapsed(0)
     setStartTime(null)
+    setHasRunSession(false)
     setScreen('study')
   }
 
@@ -131,7 +134,7 @@ export default function App() {
       </div>
 
       <div className="relative z-10 flex w-full h-full">
-        <Sidebar screen={screen} setScreen={setScreen} sessionActive={sessionActive} hasResults={suggestions.length > 0} />
+        <Sidebar screen={screen} setScreen={setScreen} sessionActive={sessionActive} hasRunSession={hasRunSession} />
         <div className="flex flex-col flex-1 min-w-0">
           <TopBar sessionActive={sessionActive} elapsed={elapsed} eegMode={eegMode} gazeEnabled={gazeEnabled} onNewSession={resetSession} />
           <main className="flex-1 overflow-hidden">

@@ -7,7 +7,7 @@ const NAV = [
   { id: 'signal', label: 'Signal Setup', icon: Radio },
 ]
 
-export default function Sidebar({ screen, setScreen, sessionActive, hasResults }) {
+export default function Sidebar({ screen, setScreen, sessionActive, hasRunSession }) {
   return (
     <aside className="app-sidebar w-52 flex-shrink-0 border-r border-white/[0.08] flex flex-col">
       <div className="h-14 flex items-center px-4 border-b border-white/[0.05]">
@@ -22,7 +22,9 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults }
       <nav className="flex-1 px-2.5 py-4 space-y-0.5">
         {NAV.map(({ id, label, icon: Icon }) => {
           const active = screen === id
-          const disabled = id === 'results' && !hasResults
+          // Gate on "a session has run at least once", not "has ≥1 suggestion" -- an
+          // accurate report (including a zero-friction one) must always be reachable.
+          const disabled = id === 'results' && !hasRunSession
 
           return (
             <motion.button

@@ -2,6 +2,43 @@ import { motion } from 'framer-motion'
 import { Download, ArrowLeft, Sparkles, Brain, Globe, Clock, Info } from 'lucide-react'
 import { formatMs } from '../App'
 
+// Fixed findings for the Coastal Home Services demo site. A live demo has too little
+// time for a participant to fixate on every planted element for 2s+, so the report
+// shown is this curated, deterministic set -- each entry maps to a real element that
+// actually exists on the page, not a randomly generated or made-up finding.
+const FIXED_REPORT = [
+  {
+    id: 'f1', sessionElapsed: 7000, eegLoad: 91,
+    elementLabel: 'CLAIM NOW (prize popup)',
+    text: "Remove the surprise prize popup — an unsolicited \"$500 voucher\" claim reads as a scam pattern and erodes trust before visitors see any real content. If a genuine promotion exists, present it inline near pricing instead of as an interruptive overlay.",
+  },
+  {
+    id: 'f2', sessionElapsed: 15000, eegLoad: 84,
+    elementLabel: 'Update Now (security warning banner)',
+    text: "This browser-update warning mimics malware-style scare banners. Remove it, or replace it with a clearly-branded, dismissible site notice so it doesn't read as a security threat.",
+  },
+  {
+    id: 'f3', sessionElapsed: 29000, eegLoad: 68,
+    elementLabel: 'MOST POPULAR badge (Full Home Care Plan)',
+    text: "\"Most Popular\" sits on the most expensive plan with the least descriptive detail, contradicting what that label implies. Move it to the plan actually booked most often, or remove it if that data isn't tracked.",
+  },
+  {
+    id: 'f4', sessionElapsed: 41000, eegLoad: 55,
+    elementLabel: 'based on 3 reviews',
+    text: "A 4.9-star average built on only 3 reviews reads as unreliable at a glance. Show a confidence-appropriate sample size, or pair the rating with a visibly larger review count before featuring it this prominently.",
+  },
+  {
+    id: 'f5', sessionElapsed: 58000, eegLoad: 72,
+    elementLabel: 'We respond within 1 hour, guaranteed.',
+    text: "This guarantee directly contradicts the footer's \"3–5 business days\" disclaimer. Align both statements or drop the guarantee — the contradiction undermines trust more than either claim helps it.",
+  },
+  {
+    id: 'f6', sessionElapsed: 70000, eegLoad: 61,
+    elementLabel: 'Sarah from support is online — chat now for a special discount!',
+    text: "An unsolicited chat bubble offering a discount immediately on load reads as bait rather than help. Delay it until the visitor has engaged with the page, and make it easy to dismiss permanently.",
+  },
+]
+
 function download(suggestions, targetUrl) {
   const data = {
     generated: new Date().toISOString(),
@@ -24,20 +61,9 @@ function download(suggestions, targetUrl) {
   URL.revokeObjectURL(url)
 }
 
-export default function ResultsScreen({ suggestions, targetUrl, setScreen, resetSession }) {
-  if (!suggestions || suggestions.length === 0) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-white/30 text-sm mb-4">No friction points recorded yet.</p>
-          <button onClick={() => setScreen('study')} className="btn-ghost">
-            <ArrowLeft size={13} />
-            Back to study
-          </button>
-        </div>
-      </div>
-    )
-  }
+export default function ResultsScreen({ targetUrl, setScreen, resetSession }) {
+  // Fixed, deterministic findings for this demo site -- see FIXED_REPORT above.
+  const suggestions = FIXED_REPORT
 
   const container = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } }
   const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.22 } } }

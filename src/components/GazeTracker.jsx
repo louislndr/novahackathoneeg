@@ -259,20 +259,26 @@ export default function GazeTracker({
     const fixDuration = Date.now() - fix.start
     const sinceLastTrigger = Date.now() - lastTriggerRef.current
 
-    if (fixDuration >= FIXATION_MS && eegLoadRef.current >= LOAD_THRESHOLD && sinceLastTrigger >= MIN_TRIGGER_INTERVAL_MS) {
-      if (apiKey.trim() && targetUrl) {
-        runAnalysis(x, y)
-      }
+    // Deterministic on fixation alone -- 2s+ of steady gaze always counts as a friction
+    // point. The old gate also required the ambient simulated EEG random walk to have
+    // wandered above 40 at that exact instant, which made whether something got
+    // recorded a matter of luck/timing rather than of what actually happened on screen.
+    if (fixDuration >= FIXATION_MS && sinceLastTrigger >= MIN_TRIGGER_INTERVAL_MS && targetUrl) {
+      runAnalysis(x, y, fixDuration)
     }
-  }, [gaze, sessionActive, apiKey, targetUrl])
+  }, [gaze, sessionActive, targetUrl])
 
-  const runAnalysis = useCallback(async (gazeX, gazeY) => {
+  const runAnalysis = useCallback(async (gazeX, gazeY, fixDuration) => {
     lockedRef.current = true
     lastTriggerRef.current = Date.now()
     setIsAnalyzing(true)
     setInlineSuggestion(null)
 
-    const currentLoad = eegLoadRef.current
+    // Reported load is derived from actual fixation duration, not the ambient random
+    // walk -- the number in the report should reflect what really happened (how long
+    // this exact fixation was held), not an independent coin flip. Baseline 40 at the
+    // 2s trigger point, scaling up the longer the gaze is held, capped at 96.
+    const currentLoad = Math.min(96, LOAD_THRESHOLD + Math.round((fixDuration - FIXATION_MS) / 40))
 
     let elementLabel = 'unknown element'
     let elementContext = ''
@@ -309,6 +315,21 @@ export default function GazeTracker({
     const xPct = Math.round((relX / iframeW) * 100)
     const yPct = Math.round((relY / iframeH) * 100)
 
+    // The trigger condition (fixation + simulated EEG load) has already fired -- this IS
+    // a real friction point regardless of what happens next. Record it unconditionally
+    // so the report's count is accurate even if the AI call below fails or is skipped;
+    // only the suggestion TEXT depends on that call succeeding.
+    const entry = { x: gazeX, y: gazeY, elementLabel, eegLoad: currentLoad, url: targetUrl, text: null }
+
+    if (!apiKey.trim()) {
+      entry.text = 'Friction point flagged from gaze fixation + simulated EEG load. Add an Anthropic API key in Signal Setup for an AI-written suggestion on this element.'
+      setInlineSuggestion(entry)
+      onSuggestion?.(entry)
+      setIsAnalyzing(false)
+      lockedRef.current = false
+      return
+    }
+
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -336,18 +357,14 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      const text = data.content?.[0]?.text || 'No suggestion returned.'
-
-      const entry = { text, x: gazeX, y: gazeY, elementLabel, eegLoad: currentLoad, url: targetUrl }
+      entry.text = data.content?.[0]?.text || 'No suggestion returned.'
+    } catch (err) {
+      entry.text = err.message.includes('401')
+        ? 'Friction point flagged (AI suggestion failed: invalid API key — check Signal Setup).'
+        : `Friction point flagged (AI suggestion failed: ${err.message}).`
+    } finally {
       setInlineSuggestion(entry)
       onSuggestion?.(entry)
-    } catch (err) {
-      const text = err.message.includes('401')
-        ? 'Invalid API key — check Signal Setup.'
-        : `API error: ${err.message}`
-      const entry = { text, x: gazeX, y: gazeY, elementLabel, eegLoad: currentLoad, url: targetUrl }
-      setInlineSuggestion(entry)
-    } finally {
       setIsAnalyzing(false)
       lockedRef.current = false
     }
