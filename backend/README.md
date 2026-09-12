@@ -234,6 +234,76 @@ other endpoint works normally; `POST .../suggestion` returns
 exactly how the test suite runs — no test requires Google Cloud credentials or makes a
 real API call (see `tests/test_backend.py`'s mock/failing suggestion services).
 
+### Cloud Run suggestion proxy (teammates with no GCP credential)
+
+The setup above requires each person to run `gcloud auth application-default login` and
+have an IAM role on the project. If a teammate doesn't want to do that, deploy the
+**suggestion proxy** once — a second, separate, stateless FastAPI app
+(`frictionfix/suggestion_proxy.py`) that holds the only real Google Cloud credential (its
+own Cloud Run service-account identity). Everyone else gets a URL and a shared token
+instead of a GCP credential.
+
+**Be clear about what this trades, not just what it saves**: it removes the need for
+gcloud/IAM per teammate, but it introduces a shared bearer token that still has to be
+handled like a secret — sent privately (Slack/DM), stored in a local gitignored `.env`,
+never committed. If that token leaks, the blast radius is "someone can call this
+rate-limited proxy" (capped at 20 requests/minute, capped at one Cloud Run instance) —
+not "someone has a real Cloud API key." It is a smaller, revocable, narrower risk than a
+committed API key, not zero risk.
+
+**One-time setup, run by whoever owns the `frictionfix-nova` project:**
+
+```powershell
+# 1. Dedicated, least-privilege service account for the proxy (Vertex AI inference only)
+gcloud iam service-accounts create frictionfix-suggest-proxy `
+  --project=frictionfix-nova --display-name="FrictionFix suggestion proxy"
+
+gcloud projects add-iam-policy-binding frictionfix-nova `
+  --member="serviceAccount:frictionfix-suggest-proxy@frictionfix-nova.iam.gserviceaccount.com" `
+  --role="roles/aiplatform.user"
+
+# 2. Generate the shared token and store it in Secret Manager (never plaintext in git
+#    or in a deploy command's shell history)
+$token = [guid]::NewGuid().ToString("N")
+$token | gcloud secrets create frictionfix-proxy-token --project=frictionfix-nova --data-file=-
+Write-Host "Send this token to your teammate privately (not via git): $token"
+
+# 3. Build and deploy, from the backend/ directory (uses the Dockerfile there)
+cd backend
+gcloud run deploy frictionfix-suggest-proxy `
+  --source . `
+  --project frictionfix-nova `
+  --region us-central1 `
+  --service-account frictionfix-suggest-proxy@frictionfix-nova.iam.gserviceaccount.com `
+  --set-env-vars GOOGLE_CLOUD_PROJECT=frictionfix-nova,GOOGLE_CLOUD_LOCATION=us-central1 `
+  --set-secrets FRICTIONFIX_PROXY_TOKEN=frictionfix-proxy-token:latest `
+  --allow-unauthenticated `
+  --max-instances=1 `
+  --min-instances=0
+```
+
+`--allow-unauthenticated` is intentional: the shared token is the actual gate (checked
+inside `suggestion_proxy.py`), not Cloud Run's own IAM layer — the point is that the
+teammate never runs `gcloud` at all. `--max-instances=1` both caps worst-case cost and
+keeps the in-memory rate limiter accurate (it isn't shared across instances). Confirm it
+deployed: `Invoke-RestMethod https://<the-printed-url>/health` should return
+`{"status": "ok"}`.
+
+**On the teammate's laptop — no gcloud, no IAM, just two environment variables:**
+
+```powershell
+$env:FRICTIONFIX_SUGGESTION_PROXY_URL = "https://<the-printed-url>"
+$env:FRICTIONFIX_SUGGESTION_PROXY_TOKEN = "<the token sent to you privately>"
+cd backend
+.\.venv\Scripts\python.exe -m uvicorn frictionfix.app:app --host 127.0.0.1 --port 8000
+```
+
+`create_app()` picks the suggestion backend automatically: if
+`FRICTIONFIX_SUGGESTION_PROXY_URL` is set, it uses `RemoteSuggestionService` (this proxy);
+otherwise it falls back to `VertexGeminiSuggestionService` (direct ADC, as above). Nothing
+else about running the backend changes — sessions, events, gaze, EEG and friction events
+all still run entirely on the teammate's own machine; only the Gemini call is relayed.
+
 ## Recorded-data development (ANT replay)
 
 Do not commit supplied raw EEG or participant files. Extract them outside the repo, or

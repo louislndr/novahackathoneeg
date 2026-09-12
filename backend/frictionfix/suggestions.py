@@ -8,13 +8,17 @@ of the backend keeps working. See README.md for Windows PowerShell setup (gcloud
 application-default login, enabling the Vertex AI API, required environment variables).
 """
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import os
+
+import httpx
+from pydantic import ValidationError
 
 from .schemas import SuggestionResult
 
 DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_TIMEOUT_MS = 10_000
+DEFAULT_PROXY_TIMEOUT_S = 15
 
 try:
     from google import genai
@@ -116,3 +120,35 @@ class VertexGeminiSuggestionService(SuggestionService):
         if parsed is None:
             raise SuggestionUnavailable("Vertex AI returned a response that did not match the expected schema")
         return parsed
+
+
+class RemoteSuggestionService(SuggestionService):
+    """Calls a deployed `suggestion_proxy` instance instead of Vertex AI directly.
+
+    Lets a teammate get suggestions with no GCP credential of their own: the proxy
+    holds the only real Google Cloud identity (its Cloud Run service account). This
+    service only needs a URL and a shared bearer token -- treat that token like a
+    secret (private channel, gitignored .env), even though it carries far less risk
+    than a real Cloud API key if it ever leaks.
+    """
+
+    def __init__(self, base_url, shared_token=None, timeout_s=DEFAULT_PROXY_TIMEOUT_S, client=None):
+        self.base_url = base_url.rstrip("/")
+        self.shared_token = shared_token
+        # `client` is injectable so tests can pass an httpx.MockTransport-backed
+        # client instead of hitting the network.
+        self._client = client or httpx.Client(timeout=timeout_s, trust_env=False)
+
+    def suggest(self, context: SuggestionContext) -> SuggestionResult:
+        headers = {"Authorization": f"Bearer {self.shared_token}"} if self.shared_token else {}
+        try:
+            response = self._client.post(f"{self.base_url}/suggest", json=asdict(context), headers=headers)
+        except httpx.HTTPError as exc:
+            raise SuggestionUnavailable(f"Suggestion proxy request failed: {exc}") from exc
+        if response.status_code != 200:
+            raise SuggestionUnavailable(
+                f"Suggestion proxy returned {response.status_code}: {response.text}")
+        try:
+            return SuggestionResult.model_validate(response.json())
+        except (ValueError, ValidationError) as exc:
+            raise SuggestionUnavailable(f"Suggestion proxy returned an invalid response: {exc}") from exc
