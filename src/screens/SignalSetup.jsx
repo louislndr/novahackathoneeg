@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Radio, Wifi, WifiOff, AlertTriangle, Activity, Settings, Eye, Key, Sparkles } from 'lucide-react'
+import { Radio, Wifi, WifiOff, AlertTriangle, Activity, Settings, Eye, Key, Sparkles, Loader2 } from 'lucide-react'
 import EEGWave from '../components/EEGWave'
 
 const CHANNELS = ['Fp1', 'Fz', 'Cz', 'Pz', 'O1', 'T7']
@@ -26,6 +26,18 @@ function Toggle({ value, onChange }) {
 
 function DeviceCard({ title, subtitle, status, channels }) {
   const connected = status === 'connected'
+  const connecting = status === 'connecting'
+  const error = status === 'error'
+
+  const badgeClass = connected
+    ? 'bg-mint-500/10 text-mint-500 border-mint-500/25'
+    : error
+    ? 'bg-red-400/10 text-red-400 border-red-400/20'
+    : connecting
+    ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+    : 'bg-white/[0.03] text-white/25 border-white/[0.06]'
+
+  const badgeLabel = connected ? 'Connected' : error ? 'Error' : connecting ? 'Connecting…' : 'Disconnected'
 
   return (
     <div className="panel p-5">
@@ -37,12 +49,9 @@ function DeviceCard({ title, subtitle, status, channels }) {
           </div>
           <p className="text-white/35 text-xs ml-6">{subtitle}</p>
         </div>
-        <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${
-          connected
-            ? 'bg-mint-500/10 text-mint-500 border-mint-500/25'
-            : 'bg-white/[0.03] text-white/25 border-white/[0.06]'
-        }`}>
-          {connected ? 'Connected' : 'Disconnected'}
+        <span className={`text-xs px-2.5 py-1 rounded-full font-medium border flex items-center gap-1.5 ${badgeClass}`}>
+          {connecting && <Loader2 size={9} className="animate-spin" />}
+          {badgeLabel}
         </span>
       </div>
       <div className="flex items-center gap-4 mt-3">
@@ -53,16 +62,20 @@ function DeviceCard({ title, subtitle, status, channels }) {
           }
           <span className="text-white/30 text-xs">{channels} channels</span>
         </div>
-        {!connected && (
-          <span className="text-white/20 text-xs">Plug in hardware to connect</span>
+        {!connected && !connecting && !error && (
+          <span className="text-white/20 text-xs">Run bridge.py to connect</span>
+        )}
+        {error && (
+          <span className="text-red-400/60 text-xs">bridge.py not running?</span>
         )}
       </div>
     </div>
   )
 }
 
-export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeEnabled, apiKey, setApiKey }) {
+export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeEnabled, apiKey, setApiKey, eegWsStatus }) {
   const simulated = eegMode === 'simulated'
+  const live = eegMode === 'live'
 
   const container = {
     hidden: {},
@@ -84,8 +97,54 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
 
         {/* Hardware status */}
         <motion.div variants={item} className="flex flex-col gap-4">
-          <DeviceCard title="EEG" subtitle="ANT Neuro eego™mylab" status="disconnected" channels={12} />
-          <DeviceCard title="fNIRS" subtitle="ANT Neuro fNIRS system" status="disconnected" channels={8} />
+          <DeviceCard
+            title="EEG"
+            subtitle="g.tec Unicorn Hybrid Black"
+            status={live ? eegWsStatus : 'disconnected'}
+            channels={8}
+          />
+        </motion.div>
+
+        {/* Live EEG toggle */}
+        <motion.div variants={item} className="panel p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Wifi size={15} className={live ? 'text-mint-500' : 'text-white/30'} />
+                <h3 className="text-sm font-semibold">Live EEG (Unicorn)</h3>
+              </div>
+              <p className="text-white/35 text-xs mt-0.5 ml-6">
+                Connect via bridge.py · USB dongle required
+              </p>
+            </div>
+            <Toggle value={live} onChange={(v) => setEegMode(v ? 'live' : 'disconnected')} />
+          </div>
+
+          <AnimatePresence>
+            {live && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-4 bg-[#0f0f0f] border border-white/[0.07] rounded-lg p-4 space-y-1.5">
+                  <p className="text-white/40 text-xs font-medium mb-2">Setup</p>
+                  {[
+                    'pip install brainflow websockets numpy',
+                    'Plug in the USB Bluetooth dongle',
+                    'Power on the Unicorn headset',
+                    'python bridge.py',
+                  ].map((step, i) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <span className="text-[10px] text-white/20 pt-0.5 w-4 flex-shrink-0">{i + 1}</span>
+                      <p className={`text-xs ${step.startsWith('pip') || step.startsWith('python') ? 'font-mono text-white/60' : 'text-white/40'}`}>{step}</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* Simulation toggle */}

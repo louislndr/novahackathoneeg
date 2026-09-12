@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react'
 import Sidebar from './components/Sidebar'
@@ -39,6 +39,32 @@ export default function App() {
   const [suggestions, setSuggestions] = useState([])
   const [startTime, setStartTime] = useState(null)
   const [elapsed, setElapsed] = useState(0)
+  const [eegWsStatus, setEegWsStatus] = useState('idle') // 'idle'|'connecting'|'connected'|'error'
+  const [liveEegLoad, setLiveEegLoad] = useState(null)
+  const eegWsRef = useRef(null)
+
+  useEffect(() => {
+    if (eegMode !== 'live') {
+      eegWsRef.current?.close()
+      eegWsRef.current = null
+      setEegWsStatus('idle')
+      setLiveEegLoad(null)
+      return
+    }
+    setEegWsStatus('connecting')
+    const ws = new WebSocket('ws://localhost:4514')
+    eegWsRef.current = ws
+    ws.onopen  = () => setEegWsStatus('connected')
+    ws.onerror = () => setEegWsStatus('error')
+    ws.onclose = () => { setEegWsStatus(s => s === 'connected' ? 'error' : s); setLiveEegLoad(null) }
+    ws.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data)
+        if (typeof d.eegLoad === 'number') setLiveEegLoad(d.eegLoad)
+      } catch {}
+    }
+    return () => { ws.close(); eegWsRef.current = null }
+  }, [eegMode])
 
   useEffect(() => {
     if (!sessionActive) return
@@ -81,6 +107,7 @@ export default function App() {
     suggestions, addSuggestion,
     elapsed,
     startSession, stopSession, resetSession,
+    eegWsStatus, liveEegLoad,
   }
 
   return (

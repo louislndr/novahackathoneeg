@@ -145,6 +145,7 @@ const MAX_JUMP_PX = 220      // reject gaze deltas larger than this (blinks/nois
 
 export default function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, eegMode, elapsed, iframeRef, onSuggestion,
+  liveEegLoad,
 }) {
   const [gaze, setGaze] = useState(null)
   const [wgStatus, setWgStatus] = useState('idle') // 'idle' | 'loading' | 'calibrating' | 'tracking' | 'error'
@@ -160,6 +161,7 @@ export default function GazeTracker({
   const initRef = useRef(false)
   const wgRef = useRef(null)
   const eegLoadHistory = useRef([30])
+  const liveEegLoadRef = useRef(null)
   const canvasRef = useRef(null)
   const lastHeatTimeRef = useRef(0)
   const gazeSmoothRef = useRef(null)
@@ -190,9 +192,17 @@ export default function GazeTracker({
 
   useEffect(() => { eegLoadRef.current = eegLoad }, [eegLoad])
 
+  // Live EEG from Unicorn — update immediately when a new sample arrives
+  useEffect(() => {
+    liveEegLoadRef.current = liveEegLoad ?? null
+    if (liveEegLoad != null && sessionActive) setEegLoad(Math.round(liveEegLoad))
+  }, [liveEegLoad, sessionActive])
+
+  // Simulation fallback — skips each tick when live data is present
   useEffect(() => {
     if (!sessionActive) { setEegLoad(0); return }
     const id = setInterval(() => {
+      if (liveEegLoadRef.current != null) return
       setEegLoad(prev => {
         const history = eegLoadHistory.current
         const trend = history.length > 3

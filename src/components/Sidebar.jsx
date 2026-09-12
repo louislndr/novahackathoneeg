@@ -79,7 +79,7 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults, 
             <Brain size={11} />
             EEG
           </div>
-          <StatusDot active={eegMode === 'simulated'} />
+          <StatusDot active={eegMode === 'simulated' || eegMode === 'live'} />
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-white/35 text-xs">
