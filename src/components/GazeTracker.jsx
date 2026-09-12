@@ -8,16 +8,18 @@ const FIXATION_MS = 2000
 const MIN_TRIGGER_INTERVAL_MS = 10000
 const LOAD_THRESHOLD = 40
 
-// 9-point grid: better edge/corner coverage significantly reduces drift
+// 9-point grid — centering via margin (not CSS transform) so framer-motion
+// transforms never conflict with positioning on the center/edge points.
+// w-8 = 32px → half = 16px
 const CALIB_POINTS = [
-  { id: 0, style: { top: '8%',  left: '8%' } },
-  { id: 1, style: { top: '8%',  left: '50%', transform: 'translateX(-50%)' } },
-  { id: 2, style: { top: '8%',  right: '8%' } },
-  { id: 3, style: { top: '50%', left: '8%',  transform: 'translateY(-50%)' } },
-  { id: 4, style: { top: '50%', left: '50%', transform: 'translate(-50%,-50%)' } },
-  { id: 5, style: { top: '50%', right: '8%', transform: 'translateY(-50%)' } },
+  { id: 0, style: { top: '8%',    left: '8%' } },
+  { id: 1, style: { top: '8%',    left: '50%',  marginLeft: -16 } },
+  { id: 2, style: { top: '8%',    right: '8%' } },
+  { id: 3, style: { top: '50%',   left: '8%',   marginTop: -16 } },
+  { id: 4, style: { top: '50%',   left: '50%',  marginLeft: -16, marginTop: -16 } },
+  { id: 5, style: { top: '50%',   right: '8%',  marginTop: -16 } },
   { id: 6, style: { bottom: '8%', left: '8%' } },
-  { id: 7, style: { bottom: '8%', left: '50%', transform: 'translateX(-50%)' } },
+  { id: 7, style: { bottom: '8%', left: '50%',  marginLeft: -16 } },
   { id: 8, style: { bottom: '8%', right: '8%' } },
 ]
 
@@ -43,45 +45,41 @@ function CalibrationOverlay({ onDone }) {
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] bg-[#09080f]/92 backdrop-blur-sm flex flex-col items-center justify-center"
     >
-      <div className="text-center mb-8">
+      <div className="text-center mb-8 pointer-events-none select-none">
         <h2 className="text-lg font-semibold mb-1">Eye Tracking Calibration</h2>
         <p className="text-white/40 text-sm">
           Look directly at each dot, then click it <span className="text-white/70">3 times</span>
         </p>
-        <p className="text-white/25 text-xs mt-0.5">Keep your head still — accuracy depends on it</p>
-        <p className="text-white/25 text-xs mt-1">{done}/{CALIB_POINTS.length} complete</p>
+        <p className="text-white/25 text-xs mt-1">Keep your head still · {done}/{CALIB_POINTS.length} complete</p>
       </div>
 
       {CALIB_POINTS.map(({ id, style }) => {
         const count = clicks[id] || 0
         const complete = count >= 3
         return (
-          <motion.button
+          // Plain button — no scale animation so dots stay perfectly fixed during calibration
+          <button
             key={id}
             onClick={() => handleClick(id)}
             style={{ position: 'absolute', ...style }}
-            whileHover={{ scale: 1.15 }}
-            whileTap={{ scale: 0.88 }}
-            className="focus:outline-none"
+            className="focus:outline-none relative"
           >
-            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
-              complete
-                ? 'border-green-400 bg-green-400/20'
-                : 'border-violet-400/60 bg-violet-500/10 hover:border-violet-400'
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+              complete       ? 'border-green-400 bg-green-400/20'
+              : count === 2 ? 'border-violet-300 bg-violet-500/30'
+              : count === 1 ? 'border-violet-400 bg-violet-500/20'
+              :                'border-violet-500/50 bg-violet-500/[0.08] hover:border-violet-400/70 hover:bg-violet-500/15'
             }`}>
-              {complete
-                ? <CheckCircle2 size={14} className="text-green-400" />
-                : <span className="text-violet-400/60 text-[10px]">{count}/3</span>
-              }
+              {complete && <CheckCircle2 size={14} className="text-green-400" />}
             </div>
             {!complete && (
               <motion.div
-                animate={{ scale: [1, 1.9], opacity: [0.5, 0] }}
-                transition={{ repeat: Infinity, duration: 1.8, ease: 'easeOut' }}
-                className="absolute inset-0 rounded-full border border-violet-400/30"
+                animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
+                transition={{ repeat: Infinity, duration: 2, ease: 'easeOut' }}
+                className="absolute inset-[-4px] rounded-full border border-violet-400/25 pointer-events-none"
               />
             )}
-          </motion.button>
+          </button>
         )
       })}
     </motion.div>
