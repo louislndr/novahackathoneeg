@@ -6,79 +6,6 @@ import StudyScreen from './screens/StudyScreen'
 import ResultsScreen from './screens/ResultsScreen'
 import SignalSetup from './screens/SignalSetup'
 
-export const TASKS = {
-  round1: {
-    id: 'round1',
-    roundLabel: 'Round 1 · Baseline',
-    title: 'Quarterly Review Booking',
-    instruction:
-      'A colleague has asked you to reserve a meeting room for the upcoming quarterly review. Complete the booking using exactly the details shown below.',
-    details: [
-      { label: 'Room', value: 'Pinecrest Boardroom', key: 'location' },
-      { label: 'Date', value: 'October 14, 2026', key: 'date' },
-      { label: 'Start time', value: '2:00 PM', key: 'time' },
-      { label: 'Attendees', value: '8', key: 'attendees' },
-      { label: 'Room setup', value: 'Theater', key: 'roomSetup' },
-      { label: 'Reference', value: 'MTNG-447', key: 'bookingRef' },
-    ],
-    expected: {
-      location: 'Pinecrest Boardroom',
-      date: 'October 14, 2026',
-      time: '2:00 PM',
-      attendees: '8',
-      roomSetup: 'Theater',
-      bookingRef: 'MTNG-447',
-    },
-  },
-  round2: {
-    id: 'round2',
-    roundLabel: 'Round 2 · Adaptive',
-    title: 'Team Workshop Booking',
-    instruction:
-      'You need to arrange a room for an upcoming team workshop. Complete the booking using exactly the details shown below.',
-    details: [
-      { label: 'Room', value: 'Harlow Suite', key: 'location' },
-      { label: 'Date', value: 'November 3, 2026', key: 'date' },
-      { label: 'Start time', value: '10:30 AM', key: 'time' },
-      { label: 'Attendees', value: '5', key: 'attendees' },
-      { label: 'Room setup', value: 'Workshop', key: 'roomSetup' },
-      { label: 'Reference', value: 'CONF-219', key: 'bookingRef' },
-    ],
-    expected: {
-      location: 'Harlow Suite',
-      date: 'November 3, 2026',
-      time: '10:30 AM',
-      attendees: '5',
-      roomSetup: 'Workshop',
-      bookingRef: 'CONF-219',
-    },
-  },
-}
-
-const EMPTY_FORM = {
-  location: '',
-  date: '',
-  time: '',
-  attendees: '',
-  roomSetup: '',
-  bookingRef: '',
-}
-
-export function countErrors(formData, expected) {
-  return Object.keys(expected).filter((k) => {
-    const v = (formData[k] || '').trim().toLowerCase()
-    return v !== expected[k].toLowerCase()
-  }).length
-}
-
-export function countActiveErrors(formData, expected) {
-  return Object.keys(expected).filter((k) => {
-    const v = (formData[k] || '').trim()
-    if (!v) return false
-    return v.toLowerCase() !== expected[k].toLowerCase()
-  }).length
-}
-
 export function formatMs(ms) {
   if (ms == null) return '—'
   const s = Math.floor(ms / 1000)
@@ -103,125 +30,63 @@ const slide = {
 
 export default function App() {
   const [screen, setScreen] = useState('study')
-  const [phase, setPhase] = useState('idle')
-  const [layout, setLayout] = useState('standard')
+  const [sessionActive, setSessionActive] = useState(false)
+  const [targetUrl, setTargetUrl] = useState('')
   const [eegMode, setEegMode] = useState('disconnected')
-  const [guidedStep, setGuidedStep] = useState(0)
-  const [adaptationTriggered, setAdaptationTriggered] = useState(false)
-  const [formData, setFormData] = useState(EMPTY_FORM)
-  const [startTime, setStartTime] = useState(null)
-  const [elapsed, setElapsed] = useState(0)
-  const [round1, setRound1] = useState(null)
-  const [round2, setRound2] = useState(null)
-  const [adaptedAtMs, setAdaptedAtMs] = useState(null)
-  const [showAdaptMsg, setShowAdaptMsg] = useState(false)
   const [gazeEnabled, setGazeEnabled] = useState(false)
   const [apiKey, setApiKey] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [startTime, setStartTime] = useState(null)
+  const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
-    if (phase !== 'round1' && phase !== 'round2') return
+    if (!sessionActive) return
     const id = setInterval(() => setElapsed(Date.now() - startTime), 100)
     return () => clearInterval(id)
-  }, [phase, startTime])
+  }, [sessionActive, startTime])
 
-  function startRound1() {
-    setFormData(EMPTY_FORM)
-    setLayout('standard')
-    setGuidedStep(0)
-    setAdaptationTriggered(false)
-    setAdaptedAtMs(null)
+  function startSession() {
+    setSuggestions([])
     const t = Date.now()
     setStartTime(t)
     setElapsed(0)
-    setPhase('round1')
+    setSessionActive(true)
   }
 
-  function submitRound1() {
-    const dur = Date.now() - startTime
-    setRound1({ duration: dur, errors: countErrors(formData, TASKS.round1.expected), formData: { ...formData } })
-    setElapsed(0)
-    setPhase('between')
+  function stopSession() {
+    setSessionActive(false)
+    if (suggestions.length > 0) setScreen('results')
   }
 
-  function startRound2() {
-    setFormData(EMPTY_FORM)
-    setLayout('standard')
-    setGuidedStep(0)
-    setAdaptationTriggered(false)
-    setAdaptedAtMs(null)
-    const t = Date.now()
-    setStartTime(t)
-    setElapsed(0)
-    setPhase('round2')
-  }
-
-  function triggerAdaptation() {
-    if (adaptationTriggered) return
-    const at = Date.now() - startTime
-    setAdaptedAtMs(at)
-    setAdaptationTriggered(true)
-    setLayout('guided')
-    setGuidedStep(0)
-    setShowAdaptMsg(true)
-    setTimeout(() => setShowAdaptMsg(false), 3500)
-  }
-
-  function submitRound2() {
-    const dur = Date.now() - startTime
-    setRound2({
-      duration: dur,
-      errors: countErrors(formData, TASKS.round2.expected),
-      formData: { ...formData },
-      layout: adaptationTriggered ? 'guided' : 'standard',
-      adaptedAtMs,
-    })
-    setElapsed(0)
-    setPhase('complete')
-    setScreen('results')
+  function addSuggestion(entry) {
+    setSuggestions(prev => [{ ...entry, id: Date.now(), sessionElapsed: elapsed }, ...prev])
   }
 
   function resetSession() {
-    setPhase('idle')
-    setFormData(EMPTY_FORM)
-    setRound1(null)
-    setRound2(null)
-    setAdaptationTriggered(false)
-    setAdaptedAtMs(null)
+    setSessionActive(false)
+    setSuggestions([])
     setElapsed(0)
     setStartTime(null)
-    setLayout('standard')
-    setGuidedStep(0)
-    setShowAdaptMsg(false)
     setScreen('study')
   }
 
-  const currentTask = phase === 'round2' ? TASKS.round2 : TASKS.round1
-
   const ctx = {
     screen, setScreen,
-    phase, layout,
+    sessionActive,
+    targetUrl, setTargetUrl,
     eegMode, setEegMode,
     gazeEnabled, setGazeEnabled,
     apiKey, setApiKey,
-    guidedStep, setGuidedStep,
-    adaptationTriggered,
-    formData, setFormData,
+    suggestions, addSuggestion,
     elapsed,
-    round1, round2,
-    adaptedAtMs,
-    showAdaptMsg,
-    currentTask,
-    startRound1, submitRound1,
-    startRound2, submitRound2,
-    triggerAdaptation,
-    resetSession,
+    startSession, stopSession, resetSession,
   }
 
   return (
     <div className="flex h-screen bg-[#0d0d0d] text-white overflow-hidden">
-      <Sidebar screen={screen} setScreen={setScreen} phase={phase} />
+      <Sidebar screen={screen} setScreen={setScreen} sessionActive={sessionActive} hasResults={suggestions.length > 0} />
       <div className="flex flex-col flex-1 min-w-0">
-        <TopBar phase={phase} eegMode={eegMode} onNewSession={resetSession} />
+        <TopBar sessionActive={sessionActive} elapsed={elapsed} eegMode={eegMode} gazeEnabled={gazeEnabled} onNewSession={resetSession} />
         <main className="flex-1 overflow-hidden">
           <AnimatePresence mode="wait">
             {screen === 'study' && (

@@ -1,654 +1,368 @@
-import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronDown, Check, Play, ArrowRight, ArrowLeft, Zap, Clock, AlertCircle, LayoutGrid, ArrowRightCircle, CheckCircle2 } from 'lucide-react'
+import { useState, useRef, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Globe, Play, Square, ArrowRight, Loader2, AlertTriangle,
+  Brain, Eye, Sparkles, Clock, X, RefreshCw, ExternalLink,
+} from 'lucide-react'
 import EEGWave from '../components/EEGWave'
 import GazeTracker from '../components/GazeTracker'
-import { countActiveErrors, formatMsLive } from '../App'
+import { formatMsLive, formatMs } from '../App'
 
-const FORM_FIELDS = [
-  {
-    key: 'location',
-    label: 'Meeting Room',
-    placeholder: 'Select a room',
-    type: 'select',
-    options: ['Pinecrest Boardroom', 'Harlow Suite', 'Cedar Room', 'Birchwood Hall', 'Maple Conference', 'Oak Executive'],
-  },
-  {
-    key: 'date',
-    label: 'Date',
-    placeholder: 'Select a date',
-    type: 'select',
-    options: ['October 12, 2026', 'October 14, 2026', 'October 16, 2026', 'November 1, 2026', 'November 3, 2026', 'November 5, 2026'],
-  },
-  {
-    key: 'time',
-    label: 'Start Time',
-    placeholder: 'Select a time',
-    type: 'select',
-    options: ['8:00 AM', '8:30 AM', '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM', '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM', '5:00 PM'],
-  },
-  {
-    key: 'attendees',
-    label: 'Number of Attendees',
-    placeholder: 'e.g. 8',
-    type: 'number',
-  },
-  {
-    key: 'roomSetup',
-    label: 'Room Setup',
-    placeholder: 'Select a setup',
-    type: 'select',
-    options: ['Theater', 'Workshop', 'Boardroom', 'Classroom', 'U-Shape', 'Reception'],
-  },
-  {
-    key: 'bookingRef',
-    label: 'Booking Reference',
-    placeholder: 'e.g. MTNG-447',
-    type: 'text',
-  },
+const DEMO_SITES = [
+  { label: 'Wikipedia', url: 'https://en.wikipedia.org/wiki/Electroencephalography' },
+  { label: 'MDN Web Docs', url: 'https://developer.mozilla.org/en-US/docs/Web/HTML' },
+  { label: 'Example.com', url: 'https://example.com' },
 ]
 
-function FieldInput({ field, value, onChange, large }) {
-  const base = [
-    'input-base',
-    large ? 'text-lg py-3.5 px-4' : '',
-  ].join(' ')
-
-  if (field.type === 'select') {
-    return (
-      <div className="relative">
-        <select value={value} onChange={(e) => onChange(e.target.value)} className={base}>
-          <option value="">{field.placeholder}</option>
-          {field.options.map((o) => (
-            <option key={o} value={o}>{o}</option>
-          ))}
-        </select>
-        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
-      </div>
-    )
-  }
-
+function EmptyPreview({ onLoad }) {
   return (
-    <input
-      type={field.type === 'number' ? 'number' : 'text'}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={field.placeholder}
-      className={base}
-      min={field.type === 'number' ? 1 : undefined}
-      max={field.type === 'number' ? 50 : undefined}
-    />
-  )
-}
-
-function TaskCard({ task, phase }) {
-  const running = phase === 'round1' || phase === 'round2'
-
-  return (
-    <motion.div
-      layout
-      className="panel p-5"
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-mint-500">
-            {task.roundLabel}
-          </span>
-          <h2 className="text-[17px] font-semibold text-white mt-0.5">{task.title}</h2>
-        </div>
-        {running && (
-          <motion.span
-            animate={{ opacity: [1, 0.3, 1] }}
-            transition={{ repeat: Infinity, duration: 1.6 }}
-            className="w-2 h-2 rounded-full bg-mint-500 mt-1 flex-shrink-0"
-          />
-        )}
+    <div className="h-full flex flex-col items-center justify-center gap-6 text-center px-8">
+      <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+        <Globe size={24} className="text-white/20" />
       </div>
-
-      <p className="text-white/40 text-sm mb-4 leading-relaxed">{task.instruction}</p>
-
-      <div className="grid grid-cols-3 gap-2">
-        {task.details.map(({ label, value }) => (
-          <div key={label} className="bg-[#111111] border border-white/[0.05] rounded-lg p-3">
-            <p className="text-white/35 text-[10px] uppercase tracking-wide mb-1">{label}</p>
-            <p className="text-white text-[13px] font-mono font-medium leading-tight">{value}</p>
-          </div>
-        ))}
+      <div>
+        <h3 className="text-white/50 font-medium mb-1">No page loaded</h3>
+        <p className="text-white/25 text-sm">Enter a URL above to load a live preview</p>
       </div>
-    </motion.div>
-  )
-}
-
-function StandardForm({ formData, onChange, onSubmit, phase, adaptationTriggered, triggerAdaptation, showAdaptMsg }) {
-  return (
-    <motion.div key="standard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }}>
-      <AnimatePresence>
-        {showAdaptMsg && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="flex items-center gap-2.5 px-4 py-3 mb-4 rounded-lg bg-mint-500/10 border border-mint-500/20"
-          >
-            <ArrowRightCircle size={15} className="text-mint-500 flex-shrink-0" />
-            <span className="text-mint-500 text-sm font-medium">Let's take this one step at a time.</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="grid grid-cols-2 gap-3.5">
-        {FORM_FIELDS.map((field, i) => (
-          <motion.div
-            key={field.key}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04, duration: 0.2 }}
-          >
-            <label className="block text-[11px] font-medium text-white/40 uppercase tracking-wide mb-1.5">
-              {field.label}
-            </label>
-            <FieldInput field={field} value={formData[field.key]} onChange={(v) => onChange(field.key, v)} />
-          </motion.div>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between mt-5 pt-5 border-t border-white/[0.05]">
-        {phase === 'round2' && !adaptationTriggered ? (
-          <motion.button
-            onClick={triggerAdaptation}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-1.5 text-[13px] font-medium px-3.5 py-2 rounded-lg border border-mint-500/30 text-mint-500/80 hover:text-mint-500 hover:bg-mint-500/5 transition-colors"
-          >
-            <Zap size={13} />
-            Trigger adaptation
-          </motion.button>
-        ) : (
-          <div />
-        )}
-        <motion.button
-          onClick={onSubmit}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          className="btn-mint"
-        >
-          Submit booking
-          <ArrowRight size={14} />
-        </motion.button>
-      </div>
-    </motion.div>
-  )
-}
-
-function GuidedForm({ formData, onChange, onSubmit, guidedStep, setGuidedStep, showAdaptMsg }) {
-  const field = FORM_FIELDS[guidedStep]
-  const total = FORM_FIELDS.length
-  const isLast = guidedStep === total - 1
-  const completedFields = FORM_FIELDS.slice(0, guidedStep)
-
-  return (
-    <motion.div key="guided" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-      <AnimatePresence>
-        {showAdaptMsg && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="flex items-center gap-2.5 px-4 py-3 mb-5 rounded-lg bg-mint-500/10 border border-mint-500/20"
-          >
-            <ArrowRightCircle size={15} className="text-mint-500 flex-shrink-0" />
-            <span className="text-mint-500 text-sm font-medium">Let's take this one step at a time.</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Progress bar */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-white/40 text-xs">
-            Step {guidedStep + 1} of {total}
-          </span>
-          <span className="text-white/30 text-xs">{field.label}</span>
-        </div>
-        <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-mint-500 rounded-full"
-            animate={{ width: `${((guidedStep + 1) / total) * 100}%` }}
-            transition={{ duration: 0.35, ease: 'easeInOut' }}
-          />
-        </div>
-        <div className="flex gap-1 mt-2">
-          {FORM_FIELDS.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
-                i < guidedStep ? 'bg-mint-500' : i === guidedStep ? 'bg-mint-500/50' : 'bg-white/[0.06]'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Current field */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={guidedStep}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="mb-6"
-        >
-          <label className="block text-white/60 text-sm font-medium mb-3">{field.label}</label>
-          <FieldInput field={field} value={formData[field.key]} onChange={(v) => onChange(field.key, v)} large />
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Completed fields */}
-      {completedFields.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {completedFields.map((f) => (
-            <div
-              key={f.key}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-mint-500/[0.07] border border-mint-500/20 rounded-lg text-xs"
+      <div>
+        <p className="text-white/20 text-xs mb-3 uppercase tracking-wider">Try these</p>
+        <div className="flex flex-wrap gap-2 justify-center">
+          {DEMO_SITES.map(({ label, url }) => (
+            <button
+              key={label}
+              onClick={() => onLoad(url)}
+              className="btn-ghost text-xs py-1.5 px-3"
             >
-              <Check size={10} className="text-mint-500 flex-shrink-0" />
-              <span className="text-white/40">{f.label}:</span>
-              <span className="text-white/70 font-mono">{formData[f.key] || '—'}</span>
-            </div>
+              {label}
+              <ArrowRight size={11} />
+            </button>
           ))}
         </div>
-      )}
-
-      {/* Navigation */}
-      <div className="flex items-center justify-between pt-4 border-t border-white/[0.05]">
-        <motion.button
-          onClick={() => setGuidedStep((s) => Math.max(0, s - 1))}
-          disabled={guidedStep === 0}
-          whileHover={guidedStep > 0 ? { scale: 1.02 } : {}}
-          whileTap={guidedStep > 0 ? { scale: 0.97 } : {}}
-          className="btn-ghost"
-        >
-          <ArrowLeft size={14} />
-          Previous
-        </motion.button>
-
-        {isLast ? (
-          <motion.button
-            onClick={onSubmit}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            className="btn-mint"
-          >
-            Submit booking
-            <ArrowRight size={14} />
-          </motion.button>
-        ) : (
-          <motion.button
-            onClick={() => setGuidedStep((s) => Math.min(total - 1, s + 1))}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            className="btn-mint"
-          >
-            Next
-            <ArrowRight size={14} />
-          </motion.button>
-        )}
-      </div>
-    </motion.div>
-  )
-}
-
-function BookingFormPanel(props) {
-  const { layout, formData, setFormData, guidedStep, setGuidedStep, phase, onSubmit, adaptationTriggered, triggerAdaptation, showAdaptMsg } = props
-
-  function onChange(key, value) {
-    setFormData((prev) => ({ ...prev, [key]: value }))
-  }
-
-  return (
-    <div className="panel overflow-hidden">
-      <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
-        <div>
-          <h3 className="text-[15px] font-semibold">Room Booking Form</h3>
-          <p className="text-white/35 text-xs mt-0.5">Complete all fields to submit your booking</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-[11px] px-2 py-1 rounded-full font-medium border ${
-            layout === 'guided'
-              ? 'bg-mint-500/10 text-mint-500 border-mint-500/25'
-              : 'bg-white/[0.04] text-white/35 border-white/[0.06]'
-          }`}>
-            {layout === 'guided' ? 'Guided' : 'Standard'}
-          </span>
-        </div>
-      </div>
-
-      <div className="p-5">
-        <AnimatePresence mode="wait">
-          {layout === 'standard' ? (
-            <StandardForm
-              key="standard"
-              formData={formData}
-              onChange={onChange}
-              onSubmit={onSubmit}
-              phase={phase}
-              adaptationTriggered={adaptationTriggered}
-              triggerAdaptation={triggerAdaptation}
-              showAdaptMsg={showAdaptMsg}
-            />
-          ) : (
-            <GuidedForm
-              key="guided"
-              formData={formData}
-              onChange={onChange}
-              onSubmit={onSubmit}
-              guidedStep={guidedStep}
-              setGuidedStep={setGuidedStep}
-              showAdaptMsg={showAdaptMsg}
-            />
-          )}
-        </AnimatePresence>
       </div>
     </div>
   )
 }
 
-function ResearchPanel({ elapsed, phase, layout, eegMode, formData, currentTask, adaptationTriggered, triggerAdaptation, adaptedAtMs, setScreen }) {
-  const running = phase === 'round1' || phase === 'round2'
-  const liveErrors = running ? countActiveErrors(formData, currentTask.expected) : 0
+function FrictionEntry({ entry, index }) {
+  const [dismissed, setDismissed] = useState(false)
+  if (dismissed) return null
 
   return (
-    <div className="w-64 flex-shrink-0 flex flex-col gap-3 overflow-auto">
-      {/* Timer */}
-      <div className="panel p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-2 flex items-center gap-1.5">
-          <Clock size={10} />
-          Elapsed Time
-        </p>
-        <p className={`text-3xl font-mono font-light tracking-tight ${running ? 'text-white' : 'text-white/20'}`}>
-          {running ? formatMsLive(elapsed) : '—:——.—'}
-        </p>
+    <motion.div
+      initial={{ opacity: 0, x: 12 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.05 }}
+      className="panel-sm p-3 mb-2.5"
+    >
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <Sparkles size={10} className="text-mint-500 flex-shrink-0" />
+          <span className="text-[10px] font-semibold text-mint-500 uppercase tracking-wider">Friction detected</span>
+        </div>
+        <button onClick={() => setDismissed(true)} className="text-white/20 hover:text-white/50 flex-shrink-0">
+          <X size={11} />
+        </button>
       </div>
 
-      {/* Live metrics */}
-      <div className="panel p-4 space-y-3">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Metrics</p>
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-[10px] text-white/25 font-mono">{formatMs(entry.sessionElapsed)}</span>
+        <span className="text-[10px] text-white/20">·</span>
+        <span className="text-[10px] text-white/25">
+          EEG <span className="text-red-400 font-mono">{entry.eegLoad}</span>/100
+        </span>
+        {entry.elementLabel && (
+          <>
+            <span className="text-[10px] text-white/20">·</span>
+            <span className="text-[10px] text-white/30 font-mono truncate max-w-[80px]">{entry.elementLabel}</span>
+          </>
+        )}
+      </div>
+
+      <p className="text-white/70 text-[12px] leading-relaxed">{entry.suggestion}</p>
+    </motion.div>
+  )
+}
+
+function ResearchPanel({ sessionActive, elapsed, eegMode, gazeEnabled, suggestions, onStart, onStop, targetUrl }) {
+  const hasSuggestions = suggestions.length > 0
+
+  return (
+    <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
+      {/* Session controls */}
+      <div className="panel p-4">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-3">Session</p>
+        {!sessionActive ? (
+          <motion.button
+            onClick={onStart}
+            disabled={!targetUrl}
+            whileHover={targetUrl ? { scale: 1.02 } : {}}
+            whileTap={targetUrl ? { scale: 0.97 } : {}}
+            className="btn-mint w-full justify-center"
+          >
+            <Play size={13} />
+            Start analysis
+          </motion.button>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <motion.span animate={{ opacity: [1, 0.2, 1] }} transition={{ repeat: Infinity, duration: 1.5 }} className="w-1.5 h-1.5 rounded-full bg-mint-500" />
+                <span className="text-mint-500 text-xs font-medium">Recording</span>
+              </div>
+              <span className="text-white/50 text-xs font-mono">{formatMsLive(elapsed)}</span>
+            </div>
+            <motion.button
+              onClick={onStop}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              className="btn-ghost w-full justify-center text-red-400 border-red-400/20 hover:bg-red-400/5"
+            >
+              <Square size={11} />
+              Stop &amp; view report
+            </motion.button>
+          </div>
+        )}
+
+        {!targetUrl && (
+          <p className="text-white/20 text-[10px] mt-2 text-center">Load a URL first</p>
+        )}
+      </div>
+
+      {/* Signal status */}
+      <div className="panel p-4 space-y-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Signals</p>
 
         <div className="flex items-center justify-between">
-          <span className="text-white/50 text-xs">Active errors</span>
-          <span className={`text-xs font-mono font-semibold tabular-nums ${liveErrors > 0 ? 'text-red-400' : 'text-white/20'}`}>
-            {running ? liveErrors : '—'}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-white/50 text-xs">Layout</span>
-          <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
-            layout === 'guided'
-              ? 'bg-mint-500/10 text-mint-500'
-              : 'bg-white/[0.04] text-white/30'
-          }`}>
-            {layout === 'guided' ? 'Guided' : 'Standard'}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-white/50 text-xs">Signal</span>
-          <span className={`text-xs font-medium ${
-            eegMode === 'simulated' ? 'text-yellow-400' : 'text-white/20'
-          }`}>
+          <div className="flex items-center gap-1.5 text-white/45 text-xs">
+            <Brain size={11} />
+            EEG
+          </div>
+          <span className={`text-[11px] font-medium ${eegMode === 'simulated' ? 'text-yellow-400' : 'text-white/20'}`}>
             {eegMode === 'simulated' ? 'Simulated' : 'Disconnected'}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-white/50 text-xs">Phase</span>
-          <span className="text-white/30 text-xs font-mono">
-            {phase === 'idle' ? '—' : phase === 'round1' ? 'Baseline' : phase === 'round2' ? 'Adaptive' : phase}
+          <div className="flex items-center gap-1.5 text-white/45 text-xs">
+            <Eye size={11} />
+            Eye tracking
+          </div>
+          <span className={`text-[11px] font-medium ${gazeEnabled ? 'text-violet-400' : 'text-white/20'}`}>
+            {gazeEnabled ? 'Active' : 'Off'}
           </span>
         </div>
+
+        {eegMode === 'simulated' && (
+          <div className="bg-[#0f0f0f] rounded-lg overflow-hidden mt-1">
+            <EEGWave active={true} height={44} channelIndex={0} />
+          </div>
+        )}
+
+        {!gazeEnabled && (
+          <p className="text-white/20 text-[10px]">Enable eye tracking in Signal Setup</p>
+        )}
       </div>
 
-      {/* EEG preview */}
-      {eegMode === 'simulated' && (
-        <div className="panel p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">EEG Preview</p>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/15 font-semibold">
-              SIM
-            </span>
-          </div>
-          <div className="bg-[#0f0f0f] rounded-lg overflow-hidden">
-            <EEGWave active={true} hasError={liveErrors > 0} height={64} channelIndex={0} />
-          </div>
-          <p className="text-[10px] text-white/15 mt-2 text-center">Simulated EEG — not real brain data</p>
+      {/* Friction log */}
+      <div className="panel p-4 flex-1 flex flex-col min-h-0">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Friction Log</p>
+          {hasSuggestions && (
+            <span className="text-[10px] font-mono text-white/30">{suggestions.length} found</span>
+          )}
         </div>
-      )}
 
-      {/* Researcher controls */}
-      {phase === 'round2' && !adaptationTriggered && (
-        <div className="panel p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-3">Researcher Controls</p>
-          <motion.button
-            onClick={triggerAdaptation}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-[13px] font-medium border border-mint-500/30 text-mint-500 hover:bg-mint-500/5 transition-colors"
-          >
-            <Zap size={13} />
-            Trigger Adaptation
-          </motion.button>
-          <p className="text-white/20 text-[10px] mt-2 text-center">Switches form to guided layout</p>
+        <div className="flex-1 overflow-auto min-h-0">
+          {!hasSuggestions ? (
+            <div className="h-full flex flex-col items-center justify-center text-center py-6">
+              <Sparkles size={18} className="text-white/10 mb-2" />
+              <p className="text-white/20 text-xs leading-relaxed">
+                {sessionActive
+                  ? 'Watching for friction…\nFixate on elements for 2s'
+                  : 'Start a session to begin\ncollecting friction points'}
+              </p>
+            </div>
+          ) : (
+            suggestions.map((s, i) => (
+              <FrictionEntry key={s.id} entry={s} index={i} />
+            ))
+          )}
         </div>
-      )}
-
-      {adaptationTriggered && adaptedAtMs != null && (
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="panel-sm p-3 border border-mint-500/20 bg-mint-500/[0.04] flex items-center gap-2"
-        >
-          <CheckCircle2 size={13} className="text-mint-500 flex-shrink-0" />
-          <div>
-            <p className="text-mint-500 text-xs font-medium">Adaptation active</p>
-            <p className="text-white/30 text-[10px] mt-0.5">Triggered at {formatMsLive(adaptedAtMs)}</p>
-          </div>
-        </motion.div>
-      )}
+      </div>
     </div>
   )
 }
 
-function IdleState({ onStart }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      className="panel p-10 flex flex-col items-center text-center"
-    >
-      <div className="w-14 h-14 rounded-2xl bg-mint-500/10 border border-mint-500/20 flex items-center justify-center mb-5">
-        <Play size={22} className="text-mint-500 ml-0.5" />
-      </div>
-      <h3 className="text-xl font-semibold mb-2">Ready to begin</h3>
-      <p className="text-white/35 text-sm leading-relaxed max-w-sm mb-7">
-        This session runs two equivalent booking tasks. Round 1 uses the standard form. Round 2 can be adapted mid-task to the guided layout.
-      </p>
-      <motion.button
-        onClick={onStart}
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.97 }}
-        className="btn-mint text-base px-7 py-3"
-      >
-        <Play size={15} />
-        Start test
-      </motion.button>
-      <p className="text-white/20 text-xs mt-4">Round 1 · Baseline · Standard layout</p>
-    </motion.div>
-  )
-}
+export default function StudyScreen({
+  sessionActive, targetUrl, setTargetUrl,
+  eegMode, gazeEnabled, apiKey,
+  suggestions, addSuggestion,
+  elapsed,
+  startSession, stopSession,
+}) {
+  const [urlInput, setUrlInput] = useState('')
+  const [iframeUrl, setIframeUrl] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [iframeKey, setIframeKey] = useState(0)
+  const iframeRef = useRef(null)
 
-function BetweenRoundsCard({ round1, onStart }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0 }}
-      className="panel p-8 flex flex-col items-center text-center"
-    >
-      <div className="w-12 h-12 rounded-2xl bg-mint-500/10 border border-mint-500/20 flex items-center justify-center mb-4">
-        <CheckCircle2 size={20} className="text-mint-500" />
-      </div>
-      <h3 className="text-lg font-semibold mb-1">Round 1 complete</h3>
-      <p className="text-white/40 text-sm mb-6">Review your baseline results before starting the adaptive round.</p>
+  function normalizeUrl(raw) {
+    const u = raw.trim()
+    if (!u) return ''
+    if (u.startsWith('http://') || u.startsWith('https://')) return u
+    return 'https://' + u
+  }
 
-      <div className="flex gap-6 mb-7">
-        <div className="text-center">
-          <p className="text-2xl font-mono font-light">{round1?.errors ?? 0}</p>
-          <p className="text-white/35 text-xs mt-0.5">Errors</p>
-        </div>
-        <div className="w-px bg-white/[0.06]" />
-        <div className="text-center">
-          <p className="text-2xl font-mono font-light">{round1 ? formatDur(round1.duration) : '—'}</p>
-          <p className="text-white/35 text-xs mt-0.5">Duration</p>
-        </div>
-      </div>
+  function loadUrl(url) {
+    const normalized = normalizeUrl(url || urlInput)
+    if (!normalized) return
+    setUrlInput(normalized)
+    setIframeUrl(normalized)
+    setTargetUrl(normalized)
+    setLoading(true)
+    setIframeKey(k => k + 1)
+  }
 
-      <motion.button
-        onClick={onStart}
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.97 }}
-        className="btn-mint"
-      >
-        Start Round 2
-        <ArrowRight size={14} />
-      </motion.button>
-      <p className="text-white/20 text-xs mt-3">Round 2 · Adaptive · Researcher can trigger layout change</p>
-    </motion.div>
-  )
-}
+  function handleKeyDown(e) {
+    if (e.key === 'Enter') loadUrl()
+  }
 
-function formatDur(ms) {
-  if (!ms) return '—'
-  const s = Math.floor(ms / 1000)
-  const m = Math.floor(s / 60)
-  return `${m}:${(s % 60).toString().padStart(2, '0')}`
-}
+  function reload() {
+    setLoading(true)
+    setIframeKey(k => k + 1)
+  }
 
-function CompleteCard({ setScreen }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="panel p-8 flex flex-col items-center text-center"
-    >
-      <div className="w-12 h-12 rounded-2xl bg-mint-500/10 border border-mint-500/20 flex items-center justify-center mb-4">
-        <LayoutGrid size={18} className="text-mint-500" />
-      </div>
-      <h3 className="text-lg font-semibold mb-1">Session complete</h3>
-      <p className="text-white/40 text-sm mb-5">Both rounds finished. View your results.</p>
-      <motion.button
-        onClick={() => setScreen('results')}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.97 }}
-        className="btn-mint"
-      >
-        View results
-        <ArrowRight size={14} />
-      </motion.button>
-    </motion.div>
-  )
-}
-
-export default function StudyScreen(props) {
-  const {
-    phase, layout, eegMode,
-    guidedStep, setGuidedStep,
-    adaptationTriggered, formData, setFormData,
-    elapsed, adaptedAtMs, showAdaptMsg,
-    currentTask,
-    startRound1, submitRound1, startRound2, submitRound2,
-    triggerAdaptation,
-    round1,
-    setScreen,
-    gazeEnabled, apiKey,
-  } = props
-
-  const onSubmit = phase === 'round1' ? submitRound1 : submitRound2
-  const running = phase === 'round1' || phase === 'round2'
+  const handleSuggestion = useCallback((entry) => {
+    addSuggestion(entry)
+  }, [addSuggestion])
 
   return (
-    <div className="h-full flex gap-5 p-5 overflow-hidden">
-      <GazeTracker
-        enabled={gazeEnabled}
-        phase={phase}
-        formData={formData}
-        currentTask={currentTask}
-        apiKey={apiKey}
-        eegMode={eegMode}
-        elapsed={elapsed}
-      />
-      {/* Left column */}
-      <div className="flex-1 flex flex-col gap-4 min-w-0 overflow-auto">
-        <AnimatePresence mode="wait">
-          {(running || phase === 'idle' || phase === 'between' || phase === 'complete') && (
-            <motion.div key="task" layout className="flex-shrink-0">
-              <TaskCard task={currentTask} phase={phase} />
-            </motion.div>
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* URL bar */}
+      <div className="flex-shrink-0 px-5 py-3 border-b border-white/[0.05] flex items-center gap-2">
+        <div className="flex-1 flex items-center gap-2 bg-[#111111] border border-white/[0.07] rounded-lg px-3 py-2 focus-within:border-mint-500/30 focus-within:ring-1 focus-within:ring-mint-500/10 transition-all">
+          <Globe size={13} className="text-white/25 flex-shrink-0" />
+          <input
+            type="url"
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Enter a URL to analyse — e.g. https://example.com"
+            className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 outline-none"
+          />
+          {iframeUrl && (
+            <button onClick={reload} className="text-white/25 hover:text-white/60 transition-colors flex-shrink-0">
+              <RefreshCw size={12} />
+            </button>
           )}
-        </AnimatePresence>
+        </div>
 
-        <AnimatePresence mode="wait">
-          {phase === 'idle' && (
-            <motion.div key="idle" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <IdleState onStart={startRound1} />
-            </motion.div>
+        <motion.button
+          onClick={() => loadUrl()}
+          disabled={!urlInput.trim()}
+          whileHover={urlInput.trim() ? { scale: 1.02 } : {}}
+          whileTap={urlInput.trim() ? { scale: 0.97 } : {}}
+          className="btn-mint py-2"
+        >
+          Load
+          <ArrowRight size={13} />
+        </motion.button>
+
+        {iframeUrl && (
+          <a
+            href={iframeUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-ghost py-2"
+            title="Open in new tab"
+          >
+            <ExternalLink size={13} />
+          </a>
+        )}
+      </div>
+
+      {/* Main area */}
+      <div className="flex-1 flex gap-4 p-4 min-h-0 overflow-hidden">
+        {/* Preview pane */}
+        <div className="flex-1 flex flex-col min-w-0 bg-[#0a0a0a] border border-white/[0.05] rounded-xl overflow-hidden relative">
+          {/* Browser chrome */}
+          {iframeUrl && (
+            <div className="flex-shrink-0 h-8 bg-[#111111] border-b border-white/[0.05] flex items-center px-3 gap-2">
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+                <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+                <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+              </div>
+              <span className="text-[11px] text-white/25 font-mono truncate flex-1 text-center">
+                {iframeUrl}
+              </span>
+              {loading && <Loader2 size={11} className="text-white/25 animate-spin flex-shrink-0" />}
+            </div>
           )}
 
-          {running && (
-            <motion.div key={`form-${phase}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <BookingFormPanel
-                layout={layout}
-                formData={formData}
-                setFormData={setFormData}
-                guidedStep={guidedStep}
-                setGuidedStep={setGuidedStep}
-                phase={phase}
-                onSubmit={onSubmit}
-                adaptationTriggered={adaptationTriggered}
-                triggerAdaptation={triggerAdaptation}
-                showAdaptMsg={showAdaptMsg}
+          {/* iframe / empty state */}
+          {iframeUrl ? (
+            <div className="flex-1 relative">
+              <iframe
+                key={iframeKey}
+                ref={iframeRef}
+                src={iframeUrl}
+                title="Website preview"
+                className="w-full h-full border-0 bg-white"
+                onLoad={() => setLoading(false)}
               />
-            </motion.div>
+
+              {/* Embedding-blocked warning overlay (shown briefly if iframe content is suspicious) */}
+              {/* This is best-effort — iframes don't reliably report X-Frame-Options errors */}
+            </div>
+          ) : (
+            <EmptyPreview onLoad={(url) => { setUrlInput(url); loadUrl(url) }} />
           )}
 
-          {phase === 'between' && (
-            <motion.div key="between" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <BetweenRoundsCard round1={round1} onStart={startRound2} />
-            </motion.div>
-          )}
+          {/* Gaze tracker mounts here so its dot overlays the iframe */}
+          <GazeTracker
+            enabled={gazeEnabled}
+            sessionActive={sessionActive}
+            targetUrl={iframeUrl}
+            apiKey={apiKey}
+            eegMode={eegMode}
+            elapsed={elapsed}
+            iframeRef={iframeRef}
+            onSuggestion={handleSuggestion}
+          />
+        </div>
 
-          {phase === 'complete' && (
-            <motion.div key="complete" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <CompleteCard setScreen={setScreen} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Research panel */}
+        <ResearchPanel
+          sessionActive={sessionActive}
+          elapsed={elapsed}
+          eegMode={eegMode}
+          gazeEnabled={gazeEnabled}
+          suggestions={suggestions}
+          onStart={startSession}
+          onStop={stopSession}
+          targetUrl={iframeUrl}
+        />
       </div>
 
-      {/* Right panel */}
-      <ResearchPanel
-        elapsed={elapsed}
-        phase={phase}
-        layout={layout}
-        eegMode={eegMode}
-        formData={formData}
-        currentTask={currentTask}
-        adaptationTriggered={adaptationTriggered}
-        triggerAdaptation={triggerAdaptation}
-        adaptedAtMs={adaptedAtMs}
-        setScreen={setScreen}
-      />
+      {/* Embedding notice */}
+      <AnimatePresence>
+        {iframeUrl && !loading && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="flex-shrink-0 flex items-center justify-between px-5 py-2 border-t border-white/[0.04]"
+          >
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle size={10} className="text-white/20" />
+              <span className="text-[10px] text-white/20">
+                Some sites block embedding (X-Frame-Options). If the preview is blank, try a different URL.
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

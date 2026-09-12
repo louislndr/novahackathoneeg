@@ -1,19 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, X, Brain, Eye, CheckCircle2 } from 'lucide-react'
-import { countActiveErrors } from '../App'
+import { Sparkles, X, Brain, CheckCircle2 } from 'lucide-react'
 
 const FIXATION_RADIUS_PX = 70
 const FIXATION_MS = 2000
 const MIN_TRIGGER_INTERVAL_MS = 10000
-const LOAD_THRESHOLD = 42
+const LOAD_THRESHOLD = 40
 
 const CALIB_POINTS = [
-  { id: 0, top: '12%', left: '12%' },
-  { id: 1, top: '12%', right: '12%' },
-  { id: 2, top: '50%', left: '50%', transform: 'translate(-50%,-50%)' },
-  { id: 3, bottom: '12%', left: '12%' },
-  { id: 4, bottom: '12%', right: '12%' },
+  { id: 0, style: { top: '12%', left: '12%' } },
+  { id: 1, style: { top: '12%', right: '12%' } },
+  { id: 2, style: { top: '50%', left: '50%', transform: 'translate(-50%,-50%)' } },
+  { id: 3, style: { bottom: '12%', left: '12%' } },
+  { id: 4, style: { bottom: '12%', right: '12%' } },
 ]
 
 function CalibrationOverlay({ onDone }) {
@@ -23,59 +22,54 @@ function CalibrationOverlay({ onDone }) {
     setClicks(prev => {
       const next = { ...prev, [id]: (prev[id] || 0) + 1 }
       if (Object.values(next).filter(c => c >= 3).length === CALIB_POINTS.length) {
-        setTimeout(onDone, 600)
+        setTimeout(onDone, 500)
       }
       return next
     })
   }
 
   const done = Object.values(clicks).filter(c => c >= 3).length
-  const total = CALIB_POINTS.length
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-[#09080f]/90 backdrop-blur-sm flex flex-col items-center justify-center"
+      className="fixed inset-0 z-[100] bg-[#09080f]/92 backdrop-blur-sm flex flex-col items-center justify-center"
     >
       <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-2 mb-3">
-          <Eye size={18} className="text-violet-400" />
-          <h2 className="text-lg font-semibold">Eye Tracking Calibration</h2>
-        </div>
-        <p className="text-white/40 text-sm">Click each dot <span className="text-white/70">3 times</span> while looking directly at it</p>
-        <p className="text-white/25 text-xs mt-1">{done}/{total} points complete</p>
+        <h2 className="text-lg font-semibold mb-1">Eye Tracking Calibration</h2>
+        <p className="text-white/40 text-sm">
+          Click each dot <span className="text-white/70">3 times</span> while looking directly at it
+        </p>
+        <p className="text-white/25 text-xs mt-1">{done}/{CALIB_POINTS.length} complete</p>
       </div>
 
-      {CALIB_POINTS.map(({ id, ...pos }) => {
+      {CALIB_POINTS.map(({ id, style }) => {
         const count = clicks[id] || 0
         const complete = count >= 3
         return (
           <motion.button
             key={id}
             onClick={() => handleClick(id)}
-            style={{ position: 'absolute', ...pos }}
+            style={{ position: 'absolute', ...style }}
             whileHover={{ scale: 1.15 }}
-            whileTap={{ scale: 0.9 }}
+            whileTap={{ scale: 0.88 }}
             className="focus:outline-none"
           >
-            <motion.div
-              animate={complete ? { scale: [1, 1.3, 1] } : {}}
-              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors duration-300 ${
-                complete
-                  ? 'border-mint-500 bg-mint-500/20'
-                  : 'border-violet-400/60 bg-violet-500/10 hover:border-violet-400 hover:bg-violet-500/20'
-              }`}
-            >
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+              complete
+                ? 'border-mint-500 bg-mint-500/20'
+                : 'border-violet-400/60 bg-violet-500/10 hover:border-violet-400'
+            }`}>
               {complete
                 ? <CheckCircle2 size={14} className="text-mint-500" />
                 : <span className="text-violet-400/60 text-[10px] font-mono">{count}/3</span>
               }
-            </motion.div>
+            </div>
             {!complete && (
               <motion.div
-                animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
+                animate={{ scale: [1, 1.9], opacity: [0.5, 0] }}
                 transition={{ repeat: Infinity, duration: 1.8, ease: 'easeOut' }}
                 className="absolute inset-0 rounded-full border border-violet-400/30"
               />
@@ -88,51 +82,48 @@ function CalibrationOverlay({ onDone }) {
 }
 
 function SuggestionCard({ suggestion, onDismiss }) {
-  const margin = 16
   const cardW = 300
-  const cardH = 180
+  const cardH = 190
+  const margin = 20
+  const vw = window.innerWidth || 1200
+  const vh = window.innerHeight || 800
 
-  const rawX = suggestion.x + 20
-  const rawY = suggestion.y - cardH / 2
-  const x = Math.min(Math.max(rawX, margin), (window.innerWidth || 1200) - cardW - margin)
-  const y = Math.min(Math.max(rawY, 70), (window.innerHeight || 800) - cardH - margin)
+  const x = Math.min(Math.max(suggestion.x + 18, margin), vw - cardW - margin)
+  const y = Math.min(Math.max(suggestion.y - cardH / 2, 70), vh - cardH - margin)
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.88, y: 8 }}
+      initial={{ opacity: 0, scale: 0.88, y: 10 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.92, y: -6 }}
-      transition={{ duration: 0.22, ease: 'easeOut' }}
+      exit={{ opacity: 0, scale: 0.93, y: -6 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
       style={{ left: x, top: y, width: cardW, position: 'fixed', zIndex: 80 }}
-      className="bg-[#120e1e]/92 backdrop-blur-xl border border-violet-500/30 rounded-xl shadow-2xl shadow-violet-900/40 overflow-hidden"
+      className="bg-[#110e1c]/95 backdrop-blur-xl border border-violet-500/25 rounded-xl shadow-2xl shadow-violet-900/30 overflow-hidden"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05]">
         <div className="flex items-center gap-1.5">
-          <Sparkles size={12} className="text-violet-400" />
-          <span className="text-[11px] font-semibold text-violet-400 uppercase tracking-wider">FrictionFix AI</span>
+          <Sparkles size={11} className="text-violet-400" />
+          <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-widest">FrictionFix AI</span>
         </div>
         <button onClick={onDismiss} className="text-white/25 hover:text-white/70 transition-colors">
-          <X size={13} />
+          <X size={12} />
         </button>
       </div>
 
-      {/* Context */}
       <div className="px-4 pt-3 pb-1">
-        <div className="flex items-center gap-3 text-[10px] text-white/30 mb-2.5">
-          <span className="flex items-center gap-1">
-            <Brain size={9} />
-            EEG load: <span className="text-red-400 font-mono">{suggestion.eegLoad}/100</span>
-          </span>
+        <div className="flex items-center gap-2 text-[10px] text-white/30 mb-2">
+          <Brain size={9} />
+          <span>EEG load: <span className="text-red-400 font-mono">{suggestion.eegLoad}/100</span></span>
           <span>·</span>
-          <span>Fixation: {(FIXATION_MS / 1000).toFixed(0)}s</span>
+          <span>Fixation: {FIXATION_MS / 1000}s</span>
         </div>
-        <p className="text-[10px] text-white/25 mb-3 font-mono truncate">
-          ↳ {suggestion.elementLabel}
-        </p>
+        {suggestion.elementLabel && (
+          <p className="text-[10px] text-white/25 font-mono mb-3 truncate">
+            ↳ {suggestion.elementLabel}
+          </p>
+        )}
       </div>
 
-      {/* Suggestion */}
       <div className="px-4 pb-4">
         <div className="bg-violet-500/[0.07] border border-violet-500/15 rounded-lg p-3">
           <p className="text-white/85 text-[13px] leading-relaxed">{suggestion.text}</p>
@@ -142,10 +133,12 @@ function SuggestionCard({ suggestion, onDismiss }) {
   )
 }
 
-export default function GazeTracker({ enabled, phase, formData, currentTask, apiKey, eegMode, elapsed }) {
+export default function GazeTracker({
+  enabled, sessionActive, targetUrl, apiKey, eegMode, elapsed, iframeRef, onSuggestion,
+}) {
   const [gaze, setGaze] = useState(null)
   const [calibrating, setCalibrating] = useState(false)
-  const [suggestion, setSuggestion] = useState(null)
+  const [inlinesuggestion, setInlineSuggestion] = useState(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [eegLoad, setEegLoad] = useState(0)
 
@@ -154,28 +147,27 @@ export default function GazeTracker({ enabled, phase, formData, currentTask, api
   const lastTriggerRef = useRef(0)
   const lockedRef = useRef(false)
   const initRef = useRef(false)
+  const eegLoadHistory = useRef([30])
 
-  const running = phase === 'round1' || phase === 'round2'
-
-  // Keep eegLoadRef in sync
   useEffect(() => { eegLoadRef.current = eegLoad }, [eegLoad])
 
-  // Compute simulated EEG load score each second
+  // Simulate EEG load as a random walk (more organic than formula-based)
   useEffect(() => {
-    if (!running) { setEegLoad(0); return }
+    if (!sessionActive) { setEegLoad(0); return }
     const id = setInterval(() => {
-      const errors = countActiveErrors(formData, currentTask.expected)
-      const base = errors * 22
-      const timePressure = Math.min(elapsed / 120000, 1) * 12
-      const noise = (Math.random() - 0.35) * 18
       setEegLoad(prev => {
-        const raw = base + timePressure + noise + 20
-        const smoothed = prev * 0.6 + raw * 0.4
-        return Math.round(Math.min(100, Math.max(0, smoothed)))
+        const history = eegLoadHistory.current
+        const trend = history.length > 3
+          ? (history[history.length - 1] - history[history.length - 4]) / 3
+          : 0
+        const step = (Math.random() - 0.48) * 8 + trend * 0.3
+        const next = Math.min(100, Math.max(10, prev + step))
+        eegLoadHistory.current = [...history.slice(-10), next]
+        return Math.round(next)
       })
-    }, 800)
+    }, 700)
     return () => clearInterval(id)
-  }, [running, formData, currentTask, elapsed])
+  }, [sessionActive])
 
   // Init WebGazer once when enabled
   useEffect(() => {
@@ -183,41 +175,32 @@ export default function GazeTracker({ enabled, phase, formData, currentTask, api
 
     const tryInit = () => {
       if (!window.webgazer) return false
-
       initRef.current = true
       window.webgazer
-        .setGazeListener((data) => {
-          if (data) setGaze({ x: data.x, y: data.y })
-        })
+        .setGazeListener((data) => { if (data) setGaze({ x: data.x, y: data.y }) })
         .showVideo(false)
         .showFaceOverlay(false)
         .showPredictionPoints(false)
         .begin()
         .catch(() => {})
-
       setCalibrating(true)
       return true
     }
 
     if (!tryInit()) {
-      // Poll until the CDN script loads
       const poll = setInterval(() => { if (tryInit()) clearInterval(poll) }, 200)
       return () => clearInterval(poll)
     }
   }, [enabled])
 
-  // Pause WebGazer when disabled
   useEffect(() => {
-    if (!enabled && initRef.current && window.webgazer) {
-      window.webgazer.pause()
-    } else if (enabled && initRef.current && window.webgazer) {
-      window.webgazer.resume()
-    }
+    if (!initRef.current || !window.webgazer) return
+    enabled ? window.webgazer.resume() : window.webgazer.pause()
   }, [enabled])
 
   // Fixation detection
   useEffect(() => {
-    if (!gaze || !running || lockedRef.current) return
+    if (!gaze || !sessionActive || lockedRef.current) return
 
     const { x, y } = gaze
     const fix = fixRef.current
@@ -233,30 +216,55 @@ export default function GazeTracker({ enabled, phase, formData, currentTask, api
     const sinceLastTrigger = Date.now() - lastTriggerRef.current
 
     if (fixDuration >= FIXATION_MS && eegLoadRef.current >= LOAD_THRESHOLD && sinceLastTrigger >= MIN_TRIGGER_INTERVAL_MS) {
-      const el = document.elementFromPoint(x, y)
-      if (el && apiKey.trim()) {
-        runAnalysis(el, x, y)
+      if (apiKey.trim() && targetUrl) {
+        runAnalysis(x, y)
       }
     }
-  }, [gaze, running, apiKey])
+  }, [gaze, sessionActive, apiKey, targetUrl])
 
-  const runAnalysis = useCallback(async (el, x, y) => {
+  const runAnalysis = useCallback(async (gazeX, gazeY) => {
     lockedRef.current = true
     lastTriggerRef.current = Date.now()
     setIsAnalyzing(true)
-    setSuggestion(null)
+    setInlineSuggestion(null)
 
-    // Extract meaningful label from the element
-    const tag = el.tagName.toLowerCase()
-    const labelEl = el.closest('[class*="panel"], [class*="field"], label')
-    const label =
-      el.getAttribute('placeholder') ||
-      el.getAttribute('aria-label') ||
-      el.closest('div')?.querySelector('label')?.textContent?.trim() ||
-      el.textContent?.trim().slice(0, 60) ||
-      tag
-    const type = el.getAttribute('type') || tag
     const currentLoad = eegLoadRef.current
+
+    // Try to get element from iframe if same-origin, fall back to URL-based
+    let elementLabel = 'unknown element'
+    let elementContext = ''
+
+    if (iframeRef?.current) {
+      try {
+        const rect = iframeRef.current.getBoundingClientRect()
+        const relX = gazeX - rect.left
+        const relY = gazeY - rect.top
+        const doc = iframeRef.current.contentDocument
+        if (doc) {
+          const el = doc.elementFromPoint(relX, relY)
+          if (el) {
+            elementLabel =
+              el.getAttribute('placeholder') ||
+              el.getAttribute('aria-label') ||
+              el.getAttribute('alt') ||
+              el.closest('label')?.textContent?.trim() ||
+              el.textContent?.trim().slice(0, 60) ||
+              el.tagName.toLowerCase()
+            elementContext = `Tag: ${el.tagName.toLowerCase()}, classes: ${el.className?.toString().slice(0, 60)}`
+          }
+        }
+      } catch {
+        // Cross-origin — expected, use coordinate-based fallback
+      }
+    }
+
+    const rect = iframeRef?.current?.getBoundingClientRect()
+    const iframeW = rect?.width || window.innerWidth
+    const iframeH = rect?.height || window.innerHeight
+    const relX = rect ? Math.round(gazeX - rect.left) : gazeX
+    const relY = rect ? Math.round(gazeY - rect.top) : gazeY
+    const xPct = Math.round((relX / iframeW) * 100)
+    const yPct = Math.round((relY / iframeH) * 100)
 
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -269,104 +277,94 @@ export default function GazeTracker({ enabled, phase, formData, currentTask, api
         },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 120,
+          max_tokens: 130,
           messages: [{
             role: 'user',
-            content: `UX research context: a user is completing a room-booking form. Eye tracking shows they have been fixating on one element for ${FIXATION_MS / 1000} seconds. Simulated EEG signal indicates cognitive load of ${currentLoad}/100 (threshold: ${LOAD_THRESHOLD}).
+            content: `UX research tool. A participant is viewing ${targetUrl}.
 
-Element details:
-- Type: ${type}
-- Label/placeholder: "${label}"
+Eye tracking: fixation held for ${FIXATION_MS / 1000}s at position (${xPct}% from left, ${yPct}% from top of the page).
+${elementLabel !== 'unknown element' ? `DOM element: "${elementLabel}"${elementContext ? ` — ${elementContext}` : ''}` : `Coordinates suggest the ${xPct < 30 ? 'left' : xPct > 70 ? 'right' : 'center'} ${yPct < 30 ? 'top' : yPct > 70 ? 'bottom' : 'middle'} region of the page.`}
+Simulated EEG cognitive load: ${currentLoad}/100 (threshold: ${LOAD_THRESHOLD}).
 
-Give ONE specific, concrete suggestion to reduce friction on this element. Be direct and brief (1–2 sentences, no preamble or hedging).`,
+Give ONE specific, actionable UX suggestion to reduce friction at this element or region. 1–2 sentences max, no preamble.`,
           }],
         }),
       })
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      const text = data.content?.[0]?.text || 'No suggestion available.'
-      setSuggestion({ text, x, y, elementLabel: label, eegLoad: currentLoad })
+      const text = data.content?.[0]?.text || 'No suggestion returned.'
+
+      const entry = { text, x: gazeX, y: gazeY, elementLabel, eegLoad: currentLoad, url: targetUrl }
+      setInlineSuggestion(entry)
+      onSuggestion?.(entry)
     } catch (err) {
-      setSuggestion({
-        text: err.message.includes('401')
-          ? 'Invalid API key — update it in Signal Setup.'
-          : 'Could not reach Claude API. Check your connection and key.',
-        x, y,
-        elementLabel: label,
-        eegLoad: currentLoad,
-      })
+      const text = err.message.includes('401')
+        ? 'Invalid API key — check Signal Setup.'
+        : `API error: ${err.message}`
+      const entry = { text, x: gazeX, y: gazeY, elementLabel, eegLoad: currentLoad, url: targetUrl }
+      setInlineSuggestion(entry)
     } finally {
       setIsAnalyzing(false)
       lockedRef.current = false
     }
-  }, [apiKey])
+  }, [apiKey, targetUrl, iframeRef, onSuggestion])
 
   if (!enabled) return null
-
-  const showDot = gaze && !calibrating
 
   return (
     <>
       {/* Gaze dot */}
-      {showDot && (
+      {gaze && !calibrating && (
         <motion.div
           className="pointer-events-none fixed z-50"
           animate={{ x: gaze.x - 7, y: gaze.y - 7 }}
           transition={{ type: 'spring', stiffness: 600, damping: 40, mass: 0.2 }}
         >
-          <div className="w-3.5 h-3.5 rounded-full bg-violet-400/60 border border-violet-300/80 shadow-lg shadow-violet-500/50" />
+          <div className="w-3.5 h-3.5 rounded-full bg-violet-400/60 border border-violet-300/80 shadow-lg shadow-violet-500/40" />
         </motion.div>
       )}
 
-      {/* Analyzing ring pulse */}
+      {/* Analyzing pulse */}
       {isAnalyzing && gaze && (
         <motion.div
-          className="pointer-events-none fixed z-40 rounded-full border-2 border-violet-400/70"
-          style={{ width: 44, height: 44 }}
-          animate={{ x: gaze.x - 22, y: gaze.y - 22, scale: [1, 1.6, 1], opacity: [0.9, 0.1, 0.9] }}
+          className="pointer-events-none fixed z-40 rounded-full border-2 border-violet-400/60"
+          style={{ width: 46, height: 46 }}
+          animate={{ x: gaze.x - 23, y: gaze.y - 23, scale: [1, 1.7, 1], opacity: [0.8, 0.1, 0.8] }}
           transition={{ repeat: Infinity, duration: 1 }}
         />
       )}
 
-      {/* EEG load indicator */}
-      {running && (
+      {/* EEG load badge */}
+      {sessionActive && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           className="fixed top-16 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0b18]/90 backdrop-blur border border-violet-500/20 shadow"
         >
-          <motion.div
-            animate={eegLoad > LOAD_THRESHOLD ? { scale: [1, 1.3, 1] } : {}}
-            transition={{ repeat: Infinity, duration: 0.8 }}
-          >
+          <motion.div animate={eegLoad > LOAD_THRESHOLD ? { scale: [1, 1.35, 1] } : {}} transition={{ repeat: Infinity, duration: 0.8 }}>
             <Brain size={11} className={eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400/60'} />
           </motion.div>
-          <span className="text-[11px] font-mono text-white/50">
-            EEG load{' '}
+          <span className="text-[11px] font-mono text-white/45">
+            EEG{' '}
             <span className={`font-semibold ${eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400'}`}>
               {eegLoad}
             </span>
-            <span className="text-white/25">/100</span>
+            <span className="text-white/20">/100</span>
           </span>
         </motion.div>
       )}
 
-      {/* AI suggestion card */}
+      {/* Inline suggestion card */}
       <AnimatePresence>
-        {suggestion && (
-          <SuggestionCard
-            suggestion={suggestion}
-            onDismiss={() => setSuggestion(null)}
-          />
+        {inlinesuggestion && (
+          <SuggestionCard suggestion={inlinesuggestion} onDismiss={() => setInlineSuggestion(null)} />
         )}
       </AnimatePresence>
 
-      {/* Calibration overlay */}
+      {/* Calibration */}
       <AnimatePresence>
-        {calibrating && (
-          <CalibrationOverlay onDone={() => setCalibrating(false)} />
-        )}
+        {calibrating && <CalibrationOverlay onDone={() => setCalibrating(false)} />}
       </AnimatePresence>
     </>
   )
