@@ -142,7 +142,7 @@ function SuggestionCard({ suggestion, onDismiss }) {
 
 const HEAT_THROTTLE_MS = 30  // draw at most once per 30ms
 const HEAT_RADIUS = 90       // px radius of each gaze sample
-const HEAT_DECAY = 0.005     // alpha removed per frame via destination-out
+const HEAT_DECAY = 0.018     // alpha removed per frame via destination-out (~2.5s to clear)
 const MAX_JUMP_PX = 220      // reject gaze deltas larger than this (blinks/noise)
 
 export default function GazeTracker({
