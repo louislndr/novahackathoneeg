@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { motion } from 'framer-motion'
 import { Monitor, FileText, Radio, Brain, Eye } from 'lucide-react'
 
@@ -28,7 +29,7 @@ function StatusDot({ active }) {
   )
 }
 
-export default function Sidebar({ screen, setScreen, sessionActive, hasResults, eegMode, gazeEnabled }) {
+function Sidebar({ screen, setScreen, sessionActive, hasResults, eegMode, gazeEnabled }) {
   return (
     <aside className="app-sidebar w-52 flex-shrink-0 border-r border-white/[0.08] flex flex-col">
       <div className="h-14 flex items-center px-4 border-b border-white/[0.05]">
@@ -93,3 +94,5 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults, 
     </aside>
   )
 }
+
+export default memo(Sidebar)

@@ -203,7 +203,6 @@ export default function StudyScreen({
             targetUrl={iframeUrl}
             apiKey={apiKey}
             eegMode={eegMode}
-            elapsed={elapsed}
             iframeRef={iframeRef}
             onSuggestion={handleSuggestion}
             onGaze={sendGaze}

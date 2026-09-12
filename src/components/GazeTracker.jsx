@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue } from 'framer-motion'
 import { Sparkles, X, Brain, CheckCircle2, AlertCircle } from 'lucide-react'
 
 const FIXATION_RADIUS_PX = 70
@@ -8,9 +8,6 @@ const FIXATION_MS = 2000
 const MIN_TRIGGER_INTERVAL_MS = 10000
 const LOAD_THRESHOLD = 40
 
-// 9-point grid — centering via margin (not CSS transform) so framer-motion
-// transforms never conflict with positioning on the center/edge points.
-// w-8 = 32px → half = 16px
 const CALIB_POINTS = [
   { id: 0, style: { top: '8%',    left: '8%' } },
   { id: 1, style: { top: '8%',    left: '50%',  marginLeft: -16 } },
@@ -57,7 +54,6 @@ function CalibrationOverlay({ onDone }) {
         const count = clicks[id] || 0
         const complete = count >= 3
         return (
-          // Plain button — no scale animation so dots stay perfectly fixed during calibration
           <button
             key={id}
             onClick={() => handleClick(id)}
@@ -144,20 +140,37 @@ const HEAT_DECAY = 0.018
 const MAX_JUMP_PX = 400
 
 // Module-level singleton — WebGazer must never be begin()'d twice.
-// Survives component remounts; we pause/resume instead of reinitialising.
 let _wg = null
 let _wgReady = false
 
 export default function GazeTracker({
-  enabled, sessionActive, targetUrl, apiKey, eegMode, elapsed, iframeRef, onSuggestion,
+  enabled, sessionActive, targetUrl, apiKey, iframeRef, onSuggestion,
   onGaze, liveEegLoad, recalibrateKey,
 }) {
-  const [gaze, setGaze] = useState(null)
-  const [wgStatus, setWgStatus] = useState('idle') // 'idle' | 'loading' | 'calibrating' | 'tracking' | 'error'
+  // Only state that actually needs to drive renders
+  const [wgStatus, setWgStatus] = useState('idle')
   const [wgError, setWgError] = useState(null)
   const [inlinesuggestion, setInlineSuggestion] = useState(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [eegLoad, setEegLoad] = useState(0)
+
+  // Gaze tracked in a ref — zero React re-renders at 30fps
+  const gazeSmoothRef = useRef(null)
+  // MotionValues for the pulse so it moves without React re-renders
+  const pulseX = useMotionValue(-100)
+  const pulseY = useMotionValue(-100)
+
+  // Prop refs — let the stable gaze listener always see current values
+  const sessionActiveRef = useRef(sessionActive)
+  const apiKeyRef = useRef(apiKey)
+  const targetUrlRef = useRef(targetUrl)
+  const onGazeRef = useRef(onGaze)
+  const onSuggestionRef = useRef(onSuggestion)
+  useEffect(() => { sessionActiveRef.current = sessionActive }, [sessionActive])
+  useEffect(() => { apiKeyRef.current = apiKey }, [apiKey])
+  useEffect(() => { targetUrlRef.current = targetUrl }, [targetUrl])
+  useEffect(() => { onGazeRef.current = onGaze }, [onGaze])
+  useEffect(() => { onSuggestionRef.current = onSuggestion }, [onSuggestion])
 
   const fixRef = useRef({ x: 0, y: 0, start: null })
   const eegLoadRef = useRef(0)
@@ -169,9 +182,7 @@ export default function GazeTracker({
   const liveEegLoadRef = useRef(null)
   const canvasRef = useRef(null)
   const lastHeatTimeRef = useRef(0)
-  const gazeSmoothRef = useRef(null)
 
-  // Draw one heat sample — only within the iframe bounds, never on app UI
   const drawHeat = useCallback((x, y) => {
     if (!iframeRef?.current) return
     const r = iframeRef.current.getBoundingClientRect()
@@ -186,28 +197,26 @@ export default function GazeTracker({
     const ctx = canvas.getContext('2d')
 
     const grd = ctx.createRadialGradient(x, y, 0, x, y, HEAT_RADIUS)
-    grd.addColorStop(0,    'rgba(255, 245, 50,  0.14)')
-    grd.addColorStop(0.2,  'rgba(255, 130, 0,   0.11)')
-    grd.addColorStop(0.5,  'rgba(220, 20, 20,   0.07)')
-    grd.addColorStop(0.8,  'rgba(140, 0, 50,    0.025)')
-    grd.addColorStop(1,    'rgba(0, 0, 0, 0)')
+    grd.addColorStop(0,   'rgba(255, 245, 50,  0.14)')
+    grd.addColorStop(0.2, 'rgba(255, 130, 0,   0.11)')
+    grd.addColorStop(0.5, 'rgba(220, 20, 20,   0.07)')
+    grd.addColorStop(0.8, 'rgba(140, 0, 50,    0.025)')
+    grd.addColorStop(1,   'rgba(0, 0, 0, 0)')
 
     ctx.globalCompositeOperation = 'lighter'
     ctx.fillStyle = grd
     ctx.beginPath()
     ctx.arc(x, y, HEAT_RADIUS, 0, Math.PI * 2)
     ctx.fill()
-  }, [])
+  }, [iframeRef])
 
   useEffect(() => { eegLoadRef.current = eegLoad }, [eegLoad])
 
-  // Live EEG from Unicorn — update immediately when a new sample arrives
   useEffect(() => {
     liveEegLoadRef.current = liveEegLoad ?? null
     if (liveEegLoad != null && sessionActive) setEegLoad(Math.round(liveEegLoad))
   }, [liveEegLoad, sessionActive])
 
-  // Simulation fallback — skips each tick when live data is present
   useEffect(() => {
     if (!sessionActive) { setEegLoad(0); return }
     const id = setInterval(() => {
@@ -226,37 +235,145 @@ export default function GazeTracker({
     return () => clearInterval(id)
   }, [sessionActive])
 
-  // WebGazer init/resume/pause — merged into one effect to avoid double-calls.
-  // On first enable: import + begin(). On remount or re-enable: just resume().
+  // runAnalysis reads live values from refs — stable callback, no dep churn
+  const runAnalysis = useCallback(async (gazeX, gazeY) => {
+    lockedRef.current = true
+    lastTriggerRef.current = Date.now()
+    setIsAnalyzing(true)
+    setInlineSuggestion(null)
+    pulseX.set(gazeX - 23)
+    pulseY.set(gazeY - 23)
+
+    const currentLoad = eegLoadRef.current
+    const currentApiKey = apiKeyRef.current
+    const currentTargetUrl = targetUrlRef.current
+
+    let elementLabel = 'unknown element'
+    let elementContext = ''
+
+    if (iframeRef?.current) {
+      try {
+        const rect = iframeRef.current.getBoundingClientRect()
+        const doc = iframeRef.current.contentDocument
+        if (doc) {
+          const el = doc.elementFromPoint(gazeX - rect.left, gazeY - rect.top)
+          if (el) {
+            elementLabel =
+              el.getAttribute('placeholder') ||
+              el.getAttribute('aria-label') ||
+              el.getAttribute('alt') ||
+              el.closest('label')?.textContent?.trim() ||
+              el.textContent?.trim().slice(0, 60) ||
+              el.tagName.toLowerCase()
+            elementContext = `Tag: ${el.tagName.toLowerCase()}, classes: ${el.className?.toString().slice(0, 60)}`
+          }
+        }
+      } catch {}
+    }
+
+    // Report fixation to backend (fire-and-forget)
+    onGazeRef.current?.({ elementLabel, x: gazeX, y: gazeY, pageUrl: currentTargetUrl, dwellMs: FIXATION_MS })
+
+    if (!currentApiKey.trim()) {
+      setIsAnalyzing(false)
+      lockedRef.current = false
+      return
+    }
+
+    const rect = iframeRef?.current?.getBoundingClientRect()
+    const iframeW = rect?.width || window.innerWidth
+    const iframeH = rect?.height || window.innerHeight
+    const relX = rect ? Math.round(gazeX - rect.left) : gazeX
+    const relY = rect ? Math.round(gazeY - rect.top) : gazeY
+    const xPct = Math.round((relX / iframeW) * 100)
+    const yPct = Math.round((relY / iframeH) * 100)
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': currentApiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 130,
+          messages: [{
+            role: 'user',
+            content: `UX research tool. A participant is viewing ${currentTargetUrl}.
+
+Eye tracking: fixation held for ${FIXATION_MS / 1000}s at position (${xPct}% from left, ${yPct}% from top of the page).
+${elementLabel !== 'unknown element' ? `DOM element: "${elementLabel}"${elementContext ? ` — ${elementContext}` : ''}` : `Coordinates suggest the ${xPct < 30 ? 'left' : xPct > 70 ? 'right' : 'center'} ${yPct < 30 ? 'top' : yPct > 70 ? 'bottom' : 'middle'} region of the page.`}
+Simulated EEG cognitive load: ${currentLoad}/100 (threshold: ${LOAD_THRESHOLD}).
+
+Give ONE specific, actionable UX suggestion to reduce friction at this element or region. 1–2 sentences max, no preamble.`,
+          }],
+        }),
+      })
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      const text = data.content?.[0]?.text || 'No suggestion returned.'
+
+      const entry = { text, x: gazeX, y: gazeY, elementLabel, eegLoad: currentLoad, url: currentTargetUrl }
+      setInlineSuggestion(entry)
+      onSuggestionRef.current?.(entry)
+    } catch (err) {
+      const text = err.message.includes('401')
+        ? 'Invalid API key — check Signal Setup.'
+        : `API error: ${err.message}`
+      setInlineSuggestion({ text, x: gazeX, y: gazeY, elementLabel, eegLoad: currentLoad, url: currentTargetUrl })
+    } finally {
+      setIsAnalyzing(false)
+      lockedRef.current = false
+    }
+  }, [iframeRef, pulseX, pulseY])
+
+  // Stable gaze listener — does fixation detection inline, never calls setGaze
+  const gazeListener = useCallback((data) => {
+    if (!data) { gazeSmoothRef.current = null; return }
+    const prev = gazeSmoothRef.current
+    if (prev && Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2) > MAX_JUMP_PX) return
+    const alpha = 0.55
+    const smoothed = prev
+      ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
+      : { x: data.x, y: data.y }
+    gazeSmoothRef.current = smoothed
+    drawHeat(smoothed.x, smoothed.y)
+    setWgStatus(s => s === 'calibrating' ? s : 'tracking')
+
+    // Fixation detection inline — no setState, no useEffect cycle at 30fps
+    if (!sessionActiveRef.current || lockedRef.current) return
+    const { x, y } = smoothed
+    const fix = fixRef.current
+    const dist = Math.sqrt((x - fix.x) ** 2 + (y - fix.y) ** 2)
+    if (dist > FIXATION_RADIUS_PX) { fixRef.current = { x, y, start: Date.now() }; return }
+    if (!fix.start) { fixRef.current.start = Date.now(); return }
+    const fixDuration = Date.now() - fix.start
+    const sinceLastTrigger = Date.now() - lastTriggerRef.current
+    if (fixDuration >= FIXATION_MS && eegLoadRef.current >= LOAD_THRESHOLD && sinceLastTrigger >= MIN_TRIGGER_INTERVAL_MS) {
+      if (targetUrlRef.current) runAnalysis(x, y)
+    }
+  }, [drawHeat, runAnalysis])
+
+  // WebGazer init/resume/pause
   useEffect(() => {
     if (!enabled) {
       if (_wg) { _wg.pause(); setWgStatus('idle') }
       return
     }
 
-    // Already initialised (survived a remount) — just re-attach and resume
     if (_wgReady && _wg) {
       wgRef.current = _wg
-      _wg.setGazeListener((data) => {
-        if (!data) { gazeSmoothRef.current = null; return }
-        const prev = gazeSmoothRef.current
-        if (prev && Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2) > MAX_JUMP_PX) return
-        const alpha = 0.55
-        const smoothed = prev
-          ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
-          : { x: data.x, y: data.y }
-        gazeSmoothRef.current = smoothed
-        setGaze(smoothed)
-        drawHeat(smoothed.x, smoothed.y)
-        setWgStatus(s => s === 'calibrating' ? s : 'tracking')
-      })
+      _wg.setGazeListener(gazeListener)
       _wg.resume()
       setWgStatus('tracking')
       setWgError(null)
       return
     }
 
-    // First-time initialisation
     if (initRef.current) return
     initRef.current = true
     setWgError(null)
@@ -269,39 +386,25 @@ export default function GazeTracker({
       wg.clearData()
       wg.saveDataAcrossSessions(false)
       wg.setRegression('weightedRidge')
-
-      wg.setGazeListener((data) => {
-        if (!data) { gazeSmoothRef.current = null; return }
-        const prev = gazeSmoothRef.current
-        if (prev && Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2) > MAX_JUMP_PX) return
-        const alpha = 0.55
-        const smoothed = prev
-          ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
-          : { x: data.x, y: data.y }
-        gazeSmoothRef.current = smoothed
-        setGaze(smoothed)
-        drawHeat(smoothed.x, smoothed.y)
-        setWgStatus(s => s === 'calibrating' ? s : 'tracking')
-      })
-      .showVideo(false)
-      .showFaceOverlay(false)
-      .showPredictionPoints(false)
-      .begin()
-      .then(() => { _wgReady = true })
-      .catch(err => {
-        setWgStatus('error')
-        setWgError(err?.message || 'Camera access denied or unavailable')
-        initRef.current = false
-        _wg = null
-      })
+      wg.setGazeListener(gazeListener)
+        .showVideo(false)
+        .showFaceOverlay(false)
+        .showPredictionPoints(false)
+        .begin()
+        .then(() => { _wgReady = true })
+        .catch(err => {
+          setWgStatus('error')
+          setWgError(err?.message || 'Camera access denied or unavailable')
+          initRef.current = false
+          _wg = null
+        })
     }).catch(err => {
       setWgStatus('error')
       setWgError('Failed to load WebGazer: ' + (err?.message || err))
       initRef.current = false
     })
-  }, [enabled, drawHeat])
+  }, [enabled, gazeListener])
 
-  // Pause on unmount so WASM stays alive but stops processing frames
   useEffect(() => {
     return () => {
       if (_wg) _wg.pause()
@@ -321,7 +424,6 @@ export default function GazeTracker({
 
     let raf
     const tick = () => {
-      // destination-out reduces existing alpha without adding any background colour
       ctx.globalCompositeOperation = 'destination-out'
       ctx.fillStyle = `rgba(0,0,0,${HEAT_DECAY})`
       ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -342,129 +444,7 @@ export default function GazeTracker({
     }
   }, [wgStatus])
 
-
-  // Fixation detection
-  useEffect(() => {
-    if (!gaze || !sessionActive || lockedRef.current) return
-
-    const { x, y } = gaze
-    const fix = fixRef.current
-    const dist = Math.sqrt((x - fix.x) ** 2 + (y - fix.y) ** 2)
-
-    if (dist > FIXATION_RADIUS_PX) {
-      fixRef.current = { x, y, start: Date.now() }
-      return
-    }
-    if (!fix.start) { fixRef.current.start = Date.now(); return }
-
-    const fixDuration = Date.now() - fix.start
-    const sinceLastTrigger = Date.now() - lastTriggerRef.current
-
-    if (fixDuration >= FIXATION_MS && eegLoadRef.current >= LOAD_THRESHOLD && sinceLastTrigger >= MIN_TRIGGER_INTERVAL_MS) {
-      if (targetUrl) {
-        runAnalysis(x, y)
-      }
-    }
-  }, [gaze, sessionActive, apiKey, targetUrl])
-
-  const runAnalysis = useCallback(async (gazeX, gazeY) => {
-    lockedRef.current = true
-    lastTriggerRef.current = Date.now()
-    setIsAnalyzing(true)
-    setInlineSuggestion(null)
-
-    const currentLoad = eegLoadRef.current
-
-    let elementLabel = 'unknown element'
-    let elementContext = ''
-
-    if (iframeRef?.current) {
-      try {
-        const rect = iframeRef.current.getBoundingClientRect()
-        const relX = gazeX - rect.left
-        const relY = gazeY - rect.top
-        const doc = iframeRef.current.contentDocument
-        if (doc) {
-          const el = doc.elementFromPoint(relX, relY)
-          if (el) {
-            elementLabel =
-              el.getAttribute('placeholder') ||
-              el.getAttribute('aria-label') ||
-              el.getAttribute('alt') ||
-              el.closest('label')?.textContent?.trim() ||
-              el.textContent?.trim().slice(0, 60) ||
-              el.tagName.toLowerCase()
-            elementContext = `Tag: ${el.tagName.toLowerCase()}, classes: ${el.className?.toString().slice(0, 60)}`
-          }
-        }
-      } catch {
-        // Cross-origin — expected
-      }
-    }
-
-    // Report fixation to backend (fire-and-forget)
-    onGaze?.({ elementLabel, x: gazeX, y: gazeY, pageUrl: targetUrl, dwellMs: FIXATION_MS })
-
-    // Claude API suggestion requires an API key
-    if (!apiKey.trim()) {
-      setIsAnalyzing(false)
-      lockedRef.current = false
-      return
-    }
-
-    const rect = iframeRef?.current?.getBoundingClientRect()
-    const iframeW = rect?.width || window.innerWidth
-    const iframeH = rect?.height || window.innerHeight
-    const relX = rect ? Math.round(gazeX - rect.left) : gazeX
-    const relY = rect ? Math.round(gazeY - rect.top) : gazeY
-    const xPct = Math.round((relX / iframeW) * 100)
-    const yPct = Math.round((relY / iframeH) * 100)
-
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey.trim(),
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 130,
-          messages: [{
-            role: 'user',
-            content: `UX research tool. A participant is viewing ${targetUrl}.
-
-Eye tracking: fixation held for ${FIXATION_MS / 1000}s at position (${xPct}% from left, ${yPct}% from top of the page).
-${elementLabel !== 'unknown element' ? `DOM element: "${elementLabel}"${elementContext ? ` — ${elementContext}` : ''}` : `Coordinates suggest the ${xPct < 30 ? 'left' : xPct > 70 ? 'right' : 'center'} ${yPct < 30 ? 'top' : yPct > 70 ? 'bottom' : 'middle'} region of the page.`}
-Simulated EEG cognitive load: ${currentLoad}/100 (threshold: ${LOAD_THRESHOLD}).
-
-Give ONE specific, actionable UX suggestion to reduce friction at this element or region. 1–2 sentences max, no preamble.`,
-          }],
-        }),
-      })
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      const text = data.content?.[0]?.text || 'No suggestion returned.'
-
-      const entry = { text, x: gazeX, y: gazeY, elementLabel, eegLoad: currentLoad, url: targetUrl }
-      setInlineSuggestion(entry)
-      onSuggestion?.(entry)
-    } catch (err) {
-      const text = err.message.includes('401')
-        ? 'Invalid API key — check Signal Setup.'
-        : `API error: ${err.message}`
-      const entry = { text, x: gazeX, y: gazeY, elementLabel, eegLoad: currentLoad, url: targetUrl }
-      setInlineSuggestion(entry)
-    } finally {
-      setIsAnalyzing(false)
-      lockedRef.current = false
-    }
-  }, [apiKey, targetUrl, iframeRef, onSuggestion, onGaze])
-
-  // Recalibrate trigger from TopBar button
+  // Recalibrate trigger
   useEffect(() => {
     if (!recalibrateKey) return
     gazeSmoothRef.current = null
@@ -477,24 +457,22 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
 
   return createPortal(
     <>
-      {/* Canvas heat map — additive gaze accumulation with slow decay */}
       <canvas
         ref={canvasRef}
         className="pointer-events-none fixed inset-0 z-50"
         style={{ opacity: wgStatus === 'tracking' ? 0.52 : 0 }}
       />
 
-      {/* Analyzing pulse */}
-      {isAnalyzing && gaze && (
+      {/* Analyzing pulse — position driven by motionValues, no React re-renders */}
+      {isAnalyzing && (
         <motion.div
           className="pointer-events-none fixed z-40 rounded-full border-2 border-violet-400/60"
-          style={{ width: 46, height: 46 }}
-          animate={{ x: gaze.x - 23, y: gaze.y - 23, scale: [1, 1.7, 1], opacity: [0.8, 0.1, 0.8] }}
+          style={{ x: pulseX, y: pulseY, width: 46, height: 46 }}
+          animate={{ scale: [1, 1.7, 1], opacity: [0.8, 0.1, 0.8] }}
           transition={{ repeat: Infinity, duration: 1 }}
         />
       )}
 
-      {/* Error badge only — other status handled by TopBar */}
       <AnimatePresence>
         {wgStatus === 'error' && (
           <motion.div
@@ -510,14 +488,12 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
         )}
       </AnimatePresence>
 
-      {/* Inline suggestion card */}
       <AnimatePresence>
         {inlinesuggestion && (
           <SuggestionCard suggestion={inlinesuggestion} onDismiss={() => setInlineSuggestion(null)} />
         )}
       </AnimatePresence>
 
-      {/* Calibration overlay */}
       <AnimatePresence>
         {calibrating && <CalibrationOverlay onDone={() => setWgStatus('tracking')} />}
       </AnimatePresence>

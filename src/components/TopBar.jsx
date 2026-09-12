@@ -1,7 +1,8 @@
+import { memo } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, RefreshCw } from 'lucide-react'
 
-export default function TopBar({ eegMode, gazeEnabled, onNewSession, onRecalibrate }) {
+function TopBar({ eegMode, gazeEnabled, onNewSession, onRecalibrate }) {
   return (
     <header className="app-topbar h-14 flex-shrink-0 border-b border-white/[0.08] flex items-center px-5 gap-4">
       <div className="flex-1 flex items-center gap-3">
@@ -35,3 +36,5 @@ export default function TopBar({ eegMode, gazeEnabled, onNewSession, onRecalibra
     </header>
   )
 }
+
+export default memo(TopBar)

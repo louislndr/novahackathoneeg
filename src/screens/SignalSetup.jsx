@@ -73,6 +73,8 @@ function DeviceCard({ title, subtitle, status, channels }) {
   )
 }
 
+const CHANNEL_UV = CHANNELS.map(() => (Math.random() * 20 + 5).toFixed(1))
+
 export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeEnabled, apiKey, setApiKey, eegWsStatus }) {
   const simulated = eegMode === 'simulated'
   const live = eegMode === 'live'
@@ -214,7 +216,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                       <EEGWave active={true} height={44} channelIndex={i} />
                     </div>
                     <span className="text-white/15 text-[10px] w-14 text-right flex-shrink-0">
-                      {(Math.random() * 20 + 5).toFixed(1)} μV
+                      {CHANNEL_UV[i]} μV
                     </span>
                   </motion.div>
                 ))}
