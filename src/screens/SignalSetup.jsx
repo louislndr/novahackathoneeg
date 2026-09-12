@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Radio, Wifi, WifiOff, Eye, Loader2 } from 'lucide-react'
 
 function Toggle({ value, onChange }) {
@@ -109,36 +109,11 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                 <h3 className="text-sm font-semibold">Live EEG</h3>
               </div>
               <p className="text-white/35 text-xs mt-0.5 ml-6">
-                Streams via LSL · run bridge.py first
+                Streams via LSL
               </p>
             </div>
             <Toggle value={live} onChange={(v) => setEegMode(v ? 'live' : 'disconnected')} />
           </div>
-
-          <AnimatePresence>
-            {live && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="mt-4 bg-[#0f0f0f] border border-white/[0.07] rounded-lg p-4 space-y-1.5">
-                  <p className="text-white/40 text-xs font-medium mb-2">Setup</p>
-                  {[
-                    { text: 'pip install pylsl websockets numpy', mono: true },
-                    { text: 'Open eego · start recording · Extras → LSL → Start', mono: false },
-                    { text: 'python3 bridge.py', mono: true },
-                  ].map(({ text, mono }, i) => (
-                    <div key={i} className="flex items-start gap-2.5">
-                      <span className="text-[10px] text-white/20 pt-0.5 w-4 flex-shrink-0">{i + 1}</span>
-                      <p className={`text-xs ${mono ? 'font-mono text-white/60' : 'text-white/40'}`}>{text}</p>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </motion.div>
 
         {/* Eye tracking */}
