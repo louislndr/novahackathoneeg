@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Globe, Play, Square, ArrowRight, Loader2, AlertTriangle,
@@ -7,6 +7,84 @@ import {
 import EEGWave from '../components/EEGWave'
 import GazeTracker from '../components/GazeTracker'
 import { formatMsLive, formatMs } from '../App'
+
+function WebcamFeed({ active }) {
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+  const [ready, setReady] = useState(false)
+  const [denied, setDenied] = useState(false)
+
+  useEffect(() => {
+    if (!active) return
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: 'user', width: 320, height: 240 } })
+      .then((stream) => {
+        streamRef.current = stream
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          setReady(true)
+        }
+      })
+      .catch(() => setDenied(true))
+
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      setReady(false)
+    }
+  }, [active])
+
+  if (!active) return null
+
+  return (
+    <div className="panel overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.05]">
+        <div className="flex items-center gap-1.5">
+          <motion.span
+            animate={ready ? { opacity: [1, 0.3, 1] } : {}}
+            transition={{ repeat: Infinity, duration: 1.6 }}
+            className={`w-1.5 h-1.5 rounded-full ${ready ? 'bg-red-400' : 'bg-white/20'}`}
+          />
+          <span className="text-[10px] font-semibold text-white/30 uppercase tracking-widest">
+            {ready ? 'Live Camera' : denied ? 'Camera blocked' : 'Connecting…'}
+          </span>
+        </div>
+        {ready && (
+          <span className="text-[9px] text-white/20 font-mono">participant view</span>
+        )}
+      </div>
+
+      {denied ? (
+        <div className="px-3 py-4 text-center">
+          <p className="text-white/25 text-xs">Camera permission denied</p>
+        </div>
+      ) : (
+        <div className="relative bg-[#080808]" style={{ aspectRatio: '4/3' }}>
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+            style={{ transform: 'scaleX(-1)' /* mirror */ }}
+          />
+          {!ready && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 size={16} className="text-white/20 animate-spin" />
+            </div>
+          )}
+          {/* Subtle scan-line overlay for aesthetic */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)',
+            }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
 
 const DEMO_SITES = [
   { label: 'Wikipedia', url: 'https://en.wikipedia.org/wiki/Electroencephalography' },
@@ -78,7 +156,7 @@ function FrictionEntry({ entry, index }) {
         )}
       </div>
 
-      <p className="text-white/70 text-[12px] leading-relaxed">{entry.suggestion}</p>
+      <p className="text-white/70 text-[12px] leading-relaxed">{entry.text}</p>
     </motion.div>
   )
 }
