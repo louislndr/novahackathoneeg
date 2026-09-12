@@ -141,7 +141,12 @@ function SuggestionCard({ suggestion, onDismiss }) {
 const HEAT_THROTTLE_MS = 30
 const HEAT_RADIUS = 90
 const HEAT_DECAY = 0.018
-const MAX_JUMP_PX = 400  // raised — 220 was too tight, caused tracking to freeze on head movement
+const MAX_JUMP_PX = 400
+
+// Module-level singleton — WebGazer must never be begin()'d twice.
+// Survives component remounts; we pause/resume instead of reinitialising.
+let _wg = null
+let _wgReady = false
 
 export default function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, eegMode, elapsed, iframeRef, onSuggestion,
@@ -221,31 +226,55 @@ export default function GazeTracker({
     return () => clearInterval(id)
   }, [sessionActive])
 
-  // Init WebGazer — show calibration immediately, load in background
+  // WebGazer init/resume/pause — merged into one effect to avoid double-calls.
+  // On first enable: import + begin(). On remount or re-enable: just resume().
   useEffect(() => {
-    if (!enabled || initRef.current) return
+    if (!enabled) {
+      if (_wg) { _wg.pause(); setWgStatus('idle') }
+      return
+    }
+
+    // Already initialised (survived a remount) — just re-attach and resume
+    if (_wgReady && _wg) {
+      wgRef.current = _wg
+      _wg.setGazeListener((data) => {
+        if (!data) { gazeSmoothRef.current = null; return }
+        const prev = gazeSmoothRef.current
+        if (prev && Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2) > MAX_JUMP_PX) return
+        const alpha = 0.55
+        const smoothed = prev
+          ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
+          : { x: data.x, y: data.y }
+        gazeSmoothRef.current = smoothed
+        setGaze(smoothed)
+        drawHeat(smoothed.x, smoothed.y)
+        setWgStatus(s => s === 'calibrating' ? s : 'tracking')
+      })
+      _wg.resume()
+      setWgStatus('tracking')
+      setWgError(null)
+      return
+    }
+
+    // First-time initialisation
+    if (initRef.current) return
     initRef.current = true
     setWgError(null)
-    setWgStatus('calibrating') // show overlay right away, no loading wait
+    setWgStatus('calibrating')
 
     import('webgazer').then(module => {
       const wg = module.default ?? module
+      _wg = wg
       wgRef.current = wg
       wg.clearData()
       wg.saveDataAcrossSessions(false)
       wg.setRegression('weightedRidge')
 
       wg.setGazeListener((data) => {
-        if (!data) {
-          gazeSmoothRef.current = null  // reset so next valid point starts fresh
-          return
-        }
+        if (!data) { gazeSmoothRef.current = null; return }
         const prev = gazeSmoothRef.current
-        if (prev) {
-          const dist = Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2)
-          if (dist > MAX_JUMP_PX) return
-        }
-        const alpha = 0.55  // was 0.35 — higher = more responsive, less lag
+        if (prev && Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2) > MAX_JUMP_PX) return
+        const alpha = 0.55
         const smoothed = prev
           ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
           : { x: data.x, y: data.y }
@@ -258,10 +287,12 @@ export default function GazeTracker({
       .showFaceOverlay(false)
       .showPredictionPoints(false)
       .begin()
+      .then(() => { _wgReady = true })
       .catch(err => {
         setWgStatus('error')
         setWgError(err?.message || 'Camera access denied or unavailable')
         initRef.current = false
+        _wg = null
       })
     }).catch(err => {
       setWgStatus('error')
@@ -269,6 +300,14 @@ export default function GazeTracker({
       initRef.current = false
     })
   }, [enabled, drawHeat])
+
+  // Pause on unmount so WASM stays alive but stops processing frames
+  useEffect(() => {
+    return () => {
+      if (_wg) _wg.pause()
+      gazeSmoothRef.current = null
+    }
+  }, [])
 
   // Canvas heat map: init size, run decay loop, handle resize
   useEffect(() => {
@@ -303,15 +342,6 @@ export default function GazeTracker({
     }
   }, [wgStatus])
 
-  // Pause/resume when enabled toggles after init
-  useEffect(() => {
-    if (!wgRef.current) return
-    if (enabled) {
-      wgRef.current.resume()
-    } else {
-      wgRef.current.pause()
-    }
-  }, [enabled])
 
   // Fixation detection
   useEffect(() => {
