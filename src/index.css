@@ -116,6 +116,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
     background: #ff8a5b;
     color: #1d100c;
     font-weight: 600;

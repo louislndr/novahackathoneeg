@@ -40,7 +40,7 @@ function DeviceCard({ title, subtitle, status, channels }) {
   const badgeLabel = connected ? 'Connected' : error ? 'Error' : connecting ? 'Connecting…' : 'Disconnected'
 
   return (
-    <div className="panel p-5">
+    <div className="panel w-full p-5">
       <div className="flex items-start justify-between mb-3">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
@@ -148,7 +148,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
         </motion.div>
 
         {/* Simulation toggle */}
-        <motion.div variants={item} className="panel p-5">
+        <motion.div variants={item} className="panel w-full p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
               <div className="flex items-center gap-2">
@@ -229,7 +229,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
         </AnimatePresence>
 
         {/* Eye tracking + AI */}
-        <motion.div variants={item} className="panel p-5">
+        <motion.div variants={item} className="panel w-full p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
               <div className="flex items-center gap-2">
@@ -303,7 +303,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
         </motion.div>
 
         {/* Live connection instructions */}
-        <motion.div variants={item} className="panel p-5">
+        <motion.div variants={item} className="panel w-full p-5">
           <div className="flex items-center gap-2 mb-4">
             <Settings size={14} className="text-white/30" />
             <h3 className="text-sm font-semibold">Live Hardware Connection</h3>
