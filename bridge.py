@@ -34,7 +34,6 @@ import websockets
 WS_PORT   = 4514
 UPDATE_HZ = 10
 WINDOW_S  = 2
-LSL_PORT  = 16571   # default LSL TCP port
 
 
 # ── Signal processing ─────────────────────────────────────────────────────────
@@ -63,40 +62,71 @@ def compute_load(buf: np.ndarray, srate: float) -> float:
 
 # ── Network discovery ─────────────────────────────────────────────────────────
 
-def get_outbound_ip() -> str | None:
+def get_all_local_ips() -> list[str]:
+    """Return all non-loopback IPv4 addresses on this machine."""
+    ips = set()
+    try:
+        # Ask for every address this hostname resolves to
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if not ip.startswith('127.'):
+                ips.add(ip)
+    except Exception:
+        pass
+    # Also get the outbound interface IP
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('8.8.8.8', 80))
-        ip = s.getsockname()[0]
+        ips.add(s.getsockname()[0])
         s.close()
-        return ip
+    except Exception:
+        pass
+    return list(ips)
+
+
+def _ping(host: str) -> str | None:
+    """Return host if it responds to ICMP ping, else None."""
+    import subprocess
+    try:
+        r = subprocess.run(
+            ['ping', '-c', '1', '-W', '500', '-t', '1', host],
+            capture_output=True, timeout=1.5,
+        )
+        return host if r.returncode == 0 else None
     except Exception:
         return None
 
 
-def _probe(host: str) -> str | None:
-    try:
-        with socket.create_connection((host, LSL_PORT), timeout=0.4):
-            return host
-    except Exception:
-        return None
-
-
-def scan_subnet(local_ip: str) -> list[str]:
-    """TCP-scan the /24 subnet for hosts with the LSL port open (~1–2 s)."""
-    try:
-        net = ipaddress.IPv4Network(f"{local_ip}/24", strict=False)
-    except Exception:
+def ping_sweep(local_ips: list[str]) -> list[str]:
+    """
+    Ping every host on all local /24 subnets in parallel.
+    Returns all live hosts — these become LSL KnownPeers so unicast
+    discovery works even when WiFi blocks multicast.
+    LSL uses UDP (not TCP) for discovery so TCP port scans never work.
+    """
+    seen_nets: set[str] = set()
+    all_hosts: list[str] = []
+    local_set = set(local_ips)
+    for ip in local_ips:
+        try:
+            net = ipaddress.IPv4Network(f"{ip}/24", strict=False)
+            key = str(net)
+            if key in seen_nets:
+                continue
+            seen_nets.add(key)
+            all_hosts += [str(h) for h in net.hosts() if str(h) not in local_set]
+        except Exception:
+            pass
+    if not all_hosts:
         return []
-    hosts = [str(h) for h in net.hosts() if str(h) != local_ip]
-    print(f"Scanning {len(hosts)} hosts on {net} for LSL port {LSL_PORT}…")
-    found = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as pool:
-        for host, ok in zip(hosts, pool.map(_probe, hosts)):
-            if ok:
-                found.append(host)
-                print(f"  → LSL host found: {host}")
-    return found
+    print(f"Pinging {len(all_hosts)} hosts on {', '.join(seen_nets)} to find live machines…")
+    alive = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=150) as pool:
+        for host, result in zip(all_hosts, pool.map(_ping, all_hosts)):
+            if result:
+                alive.append(result)
+                print(f"  → live host: {host}")
+    return alive
 
 
 def configure_unicast(peers: list[str]) -> str:
@@ -123,18 +153,24 @@ def prepare_discovery(explicit: list[str] | None) -> None:
         print(f"Config: {path}")
         return
 
-    local_ip = get_outbound_ip()
-    if not local_ip:
+    local_ips = get_all_local_ips()
+    if not local_ips:
         print("Could not determine local IP — will rely on LSL multicast.")
         return
 
-    print(f"Local IP: {local_ip}")
-    peers = scan_subnet(local_ip)
+    print(f"Local IPs: {', '.join(local_ips)}")
+    peers = ping_sweep(local_ips)
     if peers:
+        # Set ALL live hosts as KnownPeers — LSL will probe each via UDP and
+        # find the one running eego without needing to know which one it is.
         path = configure_unicast(peers)
-        print(f"Unicast config: {path}")
+        print(f"Set {len(peers)} live hosts as LSL KnownPeers (unicast config: {path})")
     else:
-        print("No remote LSL hosts found — trying multicast (same machine or multicast LAN).")
+        print("No live hosts found on subnet.")
+        print("Falling back to LSL multicast — works if eego is on the same machine.")
+        print()
+        print("If eego is on a Windows machine, run instead:")
+        print("  python3 bridge.py --eeg-host <windows-machine-ip>")
 
 
 # ── WebSocket handler ─────────────────────────────────────────────────────────
