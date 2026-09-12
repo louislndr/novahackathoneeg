@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Globe, Play, Square, ArrowRight, Loader2, AlertTriangle, RefreshCw,
+  Globe, Play, Square, ArrowRight, Loader2, RefreshCw,
 } from 'lucide-react'
 import GazeTracker from '../components/GazeTracker'
 import { formatMsLive } from '../App'
@@ -166,7 +166,7 @@ export default function StudyScreen({
       </div>
 
       {/* Preview pane */}
-      <div className="flex-1 px-5 py-4 min-h-0 overflow-hidden">
+      <div className="flex-1 p-5 min-h-0 overflow-hidden">
         <div className="h-full flex flex-col bg-[#0a0a0a] border border-white/[0.05] rounded-xl overflow-hidden relative">
           {/* Browser chrome */}
           {iframeUrl && (
@@ -211,22 +211,6 @@ export default function StudyScreen({
         </div>
       </div>
 
-      {/* Embedding notice */}
-      <AnimatePresence>
-        {iframeUrl && !loading && (
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="flex-shrink-0 flex items-center px-5 py-2 border-t border-white/[0.04]"
-          >
-            <AlertTriangle size={10} className="text-white/20 mr-1.5" />
-            <span className="text-[10px] text-white/20">
-              Some sites block embedding (X-Frame-Options). If the preview is blank, try a different URL.
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
