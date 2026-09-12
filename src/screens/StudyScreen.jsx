@@ -7,6 +7,7 @@ import GazeTracker from '../components/GazeTracker'
 import { formatMsLive } from '../App'
 
 const DEMO_SITES = [
+  { label: 'Wikipedia', url: 'https://en.wikipedia.org/wiki/Electroencephalography' },
   { label: 'Bookstore', url: 'https://books.toscrape.com' },
   { label: 'Quotes Blog', url: 'https://quotes.toscrape.com' },
   { label: 'Test Forms', url: 'https://the-internet.herokuapp.com' },
