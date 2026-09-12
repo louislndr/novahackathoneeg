@@ -6,7 +6,7 @@
 - [x] Implement API, real behavioural metrics, persistence and frontend contract.
 - [x] Implement ANT replay, optional LSL bridge and offline success/failure evaluation.
 - [x] Verify synthetic edge cases, HTTP integration and supplied recordings.
-- [ ] Document setup, limitations, AI use and commit the backend branch.
+- [x] Document setup, limitations, AI use and commit the backend branch.
 
 ## Design
 
@@ -24,3 +24,6 @@ recording replay passes a real HTTP smoke test. Synthetic LSL outlet-to-bridge-t
 transport passes. Flip-cup holdout: 28/50 correct (56%), balanced accuracy 54.8%,
 versus training-majority baseline 48%; insufficient evidence of reliable prediction.
 Actual ANT cap and teammate frontend remain unverified. See backend/VALIDATION.md.
+
+Remote push was attempted but GitHub credentials were unavailable. A backend-only
+ZIP and Git bundle are provided for transfer; GitHub connection is optional for publishing.

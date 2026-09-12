@@ -1,0 +1,14 @@
+# Keep this folder safe to copy into a teammate's existing repository.
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+data/
+reports/
+.env
+*.cnt
+*.trg
+*.evt
+*.psydat
+*.zip

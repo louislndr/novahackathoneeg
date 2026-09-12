@@ -3,6 +3,9 @@
 A local Python service for a supervised usability experiment. Your frontend owns
 the booking form; this service handles EEG, calibration, metrics and adaptation.
 
+If you received `frictionfix-backend.zip`, extract it and copy the `backend` folder
+into your existing repository root. It contains no frontend files to overwrite.
+
 ## Start on Windows (PowerShell)
 
 Use Python 3.12. From the repository root:
