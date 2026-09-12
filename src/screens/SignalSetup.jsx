@@ -83,7 +83,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
         </motion.div>
 
         {/* Hardware status */}
-        <motion.div variants={item} className="grid grid-cols-2 gap-4">
+        <motion.div variants={item} className="flex flex-col gap-4">
           <DeviceCard title="EEG" subtitle="ANT Neuro eego™mylab" status="disconnected" channels={12} />
           <DeviceCard title="fNIRS" subtitle="ANT Neuro fNIRS system" status="disconnected" channels={8} />
         </motion.div>
