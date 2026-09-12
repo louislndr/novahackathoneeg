@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
 import StudyScreen from './screens/StudyScreen'
@@ -83,29 +84,76 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#0d0d0d] text-white overflow-hidden">
-      <Sidebar screen={screen} setScreen={setScreen} sessionActive={sessionActive} hasResults={suggestions.length > 0} />
-      <div className="flex flex-col flex-1 min-w-0">
-        <TopBar sessionActive={sessionActive} elapsed={elapsed} eegMode={eegMode} gazeEnabled={gazeEnabled} onNewSession={resetSession} />
-        <main className="flex-1 overflow-hidden">
-          <AnimatePresence mode="wait">
-            {screen === 'study' && (
-              <motion.div key="study" variants={slide} initial="initial" animate="animate" exit="exit" className="h-full">
-                <StudyScreen {...ctx} />
-              </motion.div>
-            )}
-            {screen === 'results' && (
-              <motion.div key="results" variants={slide} initial="initial" animate="animate" exit="exit" className="h-full">
-                <ResultsScreen {...ctx} />
-              </motion.div>
-            )}
-            {screen === 'signal' && (
-              <motion.div key="signal" variants={slide} initial="initial" animate="animate" exit="exit" className="h-full">
-                <SignalSetup {...ctx} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </main>
+    <div className="app-shell flex h-screen text-white overflow-hidden">
+      <div className="app-background" aria-hidden="true">
+        <ShaderGradientCanvas
+          pointerEvents="none"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+        >
+          <ShaderGradient
+            animate="on"
+            axesHelper="off"
+            brightness={1.2}
+            cAzimuthAngle={180}
+            cDistance={3.6}
+            cPolarAngle={90}
+            cameraZoom={1}
+            color1="#ff5005"
+            color2="#dbba95"
+            color3="#d0bce1"
+            destination="onCanvas"
+            envPreset="city"
+            grain="on"
+            lightType="3d"
+            pixelDensity={1}
+            positionX={-1.4}
+            positionY={0}
+            positionZ={0}
+            range="disabled"
+            rangeEnd={40}
+            rangeStart={0}
+            reflection={0.1}
+            rotationX={0}
+            rotationY={10}
+            rotationZ={50}
+            shader="defaults"
+            type="plane"
+            uAmplitude={1}
+            uDensity={1.3}
+            uFrequency={5.5}
+            uSpeed={0.4}
+            uStrength={4}
+            uTime={0}
+            wireframe={false}
+          />
+        </ShaderGradientCanvas>
+        <div className="app-background-scrim" />
+      </div>
+
+      <div className="relative z-10 flex w-full h-full">
+        <Sidebar screen={screen} setScreen={setScreen} sessionActive={sessionActive} hasResults={suggestions.length > 0} />
+        <div className="flex flex-col flex-1 min-w-0">
+          <TopBar sessionActive={sessionActive} elapsed={elapsed} eegMode={eegMode} gazeEnabled={gazeEnabled} onNewSession={resetSession} />
+          <main className="flex-1 overflow-hidden">
+            <AnimatePresence mode="wait">
+              {screen === 'study' && (
+                <motion.div key="study" variants={slide} initial="initial" animate="animate" exit="exit" className="h-full">
+                  <StudyScreen {...ctx} />
+                </motion.div>
+              )}
+              {screen === 'results' && (
+                <motion.div key="results" variants={slide} initial="initial" animate="animate" exit="exit" className="h-full">
+                  <ResultsScreen {...ctx} />
+                </motion.div>
+              )}
+              {screen === 'signal' && (
+                <motion.div key="signal" variants={slide} initial="initial" animate="animate" exit="exit" className="h-full">
+                  <SignalSetup {...ctx} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </main>
+        </div>
       </div>
     </div>
   )

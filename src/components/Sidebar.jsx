@@ -9,7 +9,7 @@ const NAV = [
 
 export default function Sidebar({ screen, setScreen, sessionActive, hasResults }) {
   return (
-    <aside className="w-52 flex-shrink-0 bg-[#111111] border-r border-white/[0.05] flex flex-col">
+    <aside className="app-sidebar w-52 flex-shrink-0 border-r border-white/[0.08] flex flex-col">
       <div className="h-14 flex items-center px-4 border-b border-white/[0.05]">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-mint-500 flex items-center justify-center shadow-lg shadow-mint-500/20">

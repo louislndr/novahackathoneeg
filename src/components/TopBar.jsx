@@ -4,7 +4,7 @@ import { formatMsLive } from '../App'
 
 export default function TopBar({ sessionActive, elapsed, eegMode, gazeEnabled, onNewSession }) {
   return (
-    <header className="h-14 flex-shrink-0 bg-[#111111] border-b border-white/[0.05] flex items-center px-5 gap-4">
+    <header className="app-topbar h-14 flex-shrink-0 border-b border-white/[0.08] flex items-center px-5 gap-4">
       <div className="flex-1 flex items-center gap-3">
         {sessionActive && (
           <motion.div
