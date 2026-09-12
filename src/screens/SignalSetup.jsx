@@ -104,7 +104,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
               title="EEG"
               subtitle="ANT Neuro eego™mylab"
               status={live ? eegWsStatus : 'disconnected'}
-              channels={12}
+              channels={24}
             />
           </div>
         </motion.div>
