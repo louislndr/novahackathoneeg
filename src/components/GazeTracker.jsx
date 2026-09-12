@@ -138,10 +138,10 @@ function SuggestionCard({ suggestion, onDismiss }) {
   )
 }
 
-const HEAT_THROTTLE_MS = 30  // draw at most once per 30ms
-const HEAT_RADIUS = 90       // px radius of each gaze sample
-const HEAT_DECAY = 0.018     // alpha removed per frame via destination-out (~2.5s to clear)
-const MAX_JUMP_PX = 220      // reject gaze deltas larger than this (blinks/noise)
+const HEAT_THROTTLE_MS = 30
+const HEAT_RADIUS = 90
+const HEAT_DECAY = 0.018
+const MAX_JUMP_PX = 400  // raised — 220 was too tight, caused tracking to freeze on head movement
 
 export default function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, eegMode, elapsed, iframeRef, onSuggestion,
@@ -166,12 +166,11 @@ export default function GazeTracker({
   const lastHeatTimeRef = useRef(0)
   const gazeSmoothRef = useRef(null)
 
-  // Draw one heat sample onto the canvas — clipped to the iframe area only
+  // Draw one heat sample — only within the iframe bounds, never on app UI
   const drawHeat = useCallback((x, y) => {
-    if (iframeRef?.current) {
-      const r = iframeRef.current.getBoundingClientRect()
-      if (x < r.left || x > r.right || y < r.top || y > r.bottom) return
-    }
+    if (!iframeRef?.current) return
+    const r = iframeRef.current.getBoundingClientRect()
+    if (x < r.left || x > r.right || y < r.top || y > r.bottom) return
 
     const now = Date.now()
     if (now - lastHeatTimeRef.current < HEAT_THROTTLE_MS) return
@@ -237,13 +236,16 @@ export default function GazeTracker({
       wg.setRegression('weightedRidge')
 
       wg.setGazeListener((data) => {
-        if (!data) return
+        if (!data) {
+          gazeSmoothRef.current = null  // reset so next valid point starts fresh
+          return
+        }
         const prev = gazeSmoothRef.current
         if (prev) {
           const dist = Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2)
           if (dist > MAX_JUMP_PX) return
         }
-        const alpha = 0.35
+        const alpha = 0.55  // was 0.35 — higher = more responsive, less lag
         const smoothed = prev
           ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
           : { x: data.x, y: data.y }
