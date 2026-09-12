@@ -88,7 +88,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
         {/* Header */}
         <motion.div variants={item}>
           <h1 className="text-2xl font-semibold font-display">Signal Setup</h1>
-          <p className="text-white/35 text-sm mt-0.5">Configure EEG and fNIRS hardware · Ready for live connection</p>
+          <p className="text-white/35 text-sm mt-0.5">Connect your EEG and eye tracking signals</p>
         </motion.div>
 
         {/* Hardware status */}
