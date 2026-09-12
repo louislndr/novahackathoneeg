@@ -1,113 +1,118 @@
 #!/usr/bin/env python3
 """
-FrictionFix — g.tec Unicorn Hybrid Black WebSocket bridge
+FrictionFix — ANT Neuro EEG WebSocket bridge (LSL → WebSocket)
 
-Reads live EEG from the Unicorn via BrainFlow, computes a cognitive load
-score from band-power ratios, and streams it to the web app.
+Reads live EEG from any LSL stream (ANT Neuro eego, BrainAmp, etc.),
+computes a cognitive load score, and streams it to the web app.
 
 Setup (one-time):
-    pip install brainflow websockets numpy
+    pip install pylsl websockets numpy
 
 Run each session:
-    python bridge.py
+    1. Open ANT Neuro eego software and start a recording
+    2. Enable LSL streaming in eego (Extras → LSL)
+    3. python3 bridge.py
 
-Requirements:
-    - USB Bluetooth dongle plugged in
-    - Unicorn headset powered on and in range
+The bridge auto-detects the first EEG stream on the network.
 """
 
 import asyncio
 import json
 import numpy as np
 import websockets
-from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
-from brainflow.data_filter import DataFilter, DetrendOperations
+from pylsl import StreamInlet, resolve_byprop, LostError
 
-BOARD_ID    = BoardIds.UNICORN_BOARD   # g.tec Unicorn Hybrid Black
-SAMPLE_RATE = 250                       # Hz (fixed by hardware)
-WS_PORT     = 4514
-WINDOW_S    = 2                         # seconds of data for band power
-UPDATE_HZ   = 10                        # updates per second sent to browser
+WS_PORT    = 4514
+UPDATE_HZ  = 10       # updates per second to browser
+WINDOW_S   = 2        # seconds buffered for band power
+LSL_TIMEOUT = 10      # seconds to wait for LSL stream
 
 
-def compute_load(data: np.ndarray, eeg_channels: list) -> float:
+def band_power(data: np.ndarray, srate: float, lo: float, hi: float) -> float:
+    n = data.shape[0]
+    freqs = np.fft.rfftfreq(n, d=1.0 / srate)
+    fft   = np.abs(np.fft.rfft(data)) ** 2
+    mask  = (freqs >= lo) & (freqs <= hi)
+    return float(np.mean(fft[mask])) if mask.any() else 0.0
+
+
+def compute_load(buf: np.ndarray, srate: float) -> float:
     """
-    Cognitive load proxy: (theta + beta) / alpha averaged across channels.
-    Theta (4-8 Hz) and beta (13-30 Hz) increase under load;
-    alpha (8-13 Hz) decreases. Result normalized to 0-100.
+    (theta + beta) / alpha averaged across channels → 0–100 score.
     """
-    if data.shape[1] < SAMPLE_RATE:
-        return 30.0  # not enough data yet — return neutral
-
-    window = SAMPLE_RATE * WINDOW_S
+    if buf.shape[0] < int(srate):
+        return 30.0
     ratios = []
-    for ch in eeg_channels:
-        ch_data = data[ch, -window:].copy().astype(float)
-        DataFilter.detrend(ch_data, DetrendOperations.CONSTANT.value)
-        alpha = DataFilter.get_band_power(ch_data, SAMPLE_RATE, 8.0, 13.0)
-        theta = DataFilter.get_band_power(ch_data, SAMPLE_RATE, 4.0, 8.0)
-        beta  = DataFilter.get_band_power(ch_data, SAMPLE_RATE, 13.0, 30.0)
+    for ch in range(buf.shape[1]):
+        ch_data = buf[:, ch] - buf[:, ch].mean()
+        alpha = band_power(ch_data, srate, 8.0, 13.0)
+        theta = band_power(ch_data, srate, 4.0,  8.0)
+        beta  = band_power(ch_data, srate, 13.0, 30.0)
         ratios.append((theta + beta) / max(alpha, 1e-9))
-
     ratio = float(np.mean(ratios))
-    # Empirical range: ~0.5 relaxed (load 10) → ~4.5 high load (load 90)
-    load = np.clip((ratio - 0.5) / 4.0 * 80 + 10, 0, 100)
-    return round(float(load), 1)
+    return round(float(np.clip((ratio - 0.5) / 4.0 * 80 + 10, 0, 100)), 1)
 
 
 async def handle_client(websocket):
-    params = BrainFlowInputParams()
-    board  = BoardShim(BOARD_ID, params)
-    eeg_ch = BoardShim.get_eeg_channels(BOARD_ID)
+    print("Browser connected — searching for LSL EEG stream…")
+    streams = resolve_byprop('type', 'EEG', timeout=LSL_TIMEOUT)
+    if not streams:
+        print("No LSL EEG stream found. Start eego and enable LSL streaming.")
+        await websocket.close()
+        return
 
+    inlet  = StreamInlet(streams[0])
+    info   = inlet.info()
+    srate  = info.nominal_srate() or 256.0
+    n_ch   = info.channel_count()
+    win    = int(srate * WINDOW_S)
+    buf    = np.zeros((win, n_ch))
+
+    print(f"LSL stream found: {info.name()} · {n_ch}ch · {srate}Hz")
+
+    interval = 1.0 / UPDATE_HZ
     try:
-        board.prepare_session()
-        board.start_stream(SAMPLE_RATE * WINDOW_S * 4)
-        print("Unicorn connected — streaming EEG load to browser")
-
-        interval = 1.0 / UPDATE_HZ
         while True:
             await asyncio.sleep(interval)
-            data = board.get_board_data()
-            if data.shape[1] == 0:
-                continue
+            # Pull all available samples since last tick
+            samples, _ = inlet.pull_chunk(timeout=0.0, max_samples=int(srate))
+            if samples:
+                chunk = np.array(samples)
+                buf = np.roll(buf, -len(chunk), axis=0)
+                buf[-len(chunk):] = chunk[:, :n_ch]
 
-            load     = compute_load(data, eeg_ch)
-            channels = [float(data[ch, -1]) for ch in eeg_ch]
+            load     = compute_load(buf, srate)
+            channels = buf[-1].tolist()
 
             await websocket.send(json.dumps({
                 "eegLoad":  load,
                 "channels": channels,
             }))
 
-    except websockets.exceptions.ConnectionClosed:
-        print("Browser disconnected")
+    except (websockets.exceptions.ConnectionClosed, LostError):
+        print("Disconnected")
     except Exception as e:
         print(f"Bridge error: {e}")
     finally:
-        try:
-            board.stop_stream()
-            board.release_session()
-        except Exception:
-            pass
-        print("Session released — ready for next connection")
+        inlet.close_stream()
+        print("Session ended — ready for next connection")
 
 
 async def main():
     print("=" * 50)
-    print("FrictionFix EEG bridge")
-    print(f"Listening on ws://localhost:{WS_PORT}")
+    print("FrictionFix EEG bridge  (LSL → WebSocket)")
+    print(f"ws://localhost:{WS_PORT}")
     print("=" * 50)
     print()
-    print("1. Plug in the USB Bluetooth dongle")
-    print("2. Power on the Unicorn Hybrid Black headset")
-    print("3. Open FrictionFix in the browser")
-    print("4. Go to Signal Setup → enable Live EEG")
+    print("Before connecting:")
+    print("  1. Open ANT Neuro eego software")
+    print("  2. Start a recording session")
+    print("  3. Enable LSL in eego: Extras → LSL → Start")
     print()
+    print("Waiting for browser…")
     async with websockets.serve(handle_client, "localhost", WS_PORT):
         await asyncio.Future()
 
 
 if __name__ == "__main__":
-    BoardShim.disable_board_logger()
     asyncio.run(main())

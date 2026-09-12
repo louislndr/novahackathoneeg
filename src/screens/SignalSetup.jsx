@@ -99,9 +99,9 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
         <motion.div variants={item} className="flex flex-col gap-4">
           <DeviceCard
             title="EEG"
-            subtitle="g.tec Unicorn Hybrid Black"
+            subtitle="ANT Neuro eego™mylab"
             status={live ? eegWsStatus : 'disconnected'}
-            channels={8}
+            channels={12}
           />
         </motion.div>
 
@@ -111,10 +111,10 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
             <div>
               <div className="flex items-center gap-2">
                 <Wifi size={15} className={live ? 'text-mint-500' : 'text-white/30'} />
-                <h3 className="text-sm font-semibold">Live EEG (Unicorn)</h3>
+                <h3 className="text-sm font-semibold">Live EEG</h3>
               </div>
               <p className="text-white/35 text-xs mt-0.5 ml-6">
-                Connect via bridge.py · USB dongle required
+                Streams via LSL · run bridge.py first
               </p>
             </div>
             <Toggle value={live} onChange={(v) => setEegMode(v ? 'live' : 'disconnected')} />
@@ -131,14 +131,13 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                 <div className="mt-4 bg-[#0f0f0f] border border-white/[0.07] rounded-lg p-4 space-y-1.5">
                   <p className="text-white/40 text-xs font-medium mb-2">Setup</p>
                   {[
-                    'pip install brainflow websockets numpy',
-                    'Plug in the USB Bluetooth dongle',
-                    'Power on the Unicorn headset',
-                    'python bridge.py',
-                  ].map((step, i) => (
+                    { text: 'pip install pylsl websockets numpy', mono: true },
+                    { text: 'Open eego · start recording · Extras → LSL → Start', mono: false },
+                    { text: 'python3 bridge.py', mono: true },
+                  ].map(({ text, mono }, i) => (
                     <div key={i} className="flex items-start gap-2.5">
                       <span className="text-[10px] text-white/20 pt-0.5 w-4 flex-shrink-0">{i + 1}</span>
-                      <p className={`text-xs ${step.startsWith('pip') || step.startsWith('python') ? 'font-mono text-white/60' : 'text-white/40'}`}>{step}</p>
+                      <p className={`text-xs ${mono ? 'font-mono text-white/60' : 'text-white/40'}`}>{text}</p>
                     </div>
                   ))}
                 </div>
@@ -306,14 +305,14 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
         <motion.div variants={item} className="panel w-full p-5">
           <div className="flex items-center gap-2 mb-4">
             <Settings size={14} className="text-white/30" />
-            <h3 className="text-sm font-semibold">Live Hardware Connection</h3>
+            <h3 className="text-sm font-semibold">How it connects</h3>
           </div>
           <div className="space-y-3">
             {[
-              { step: '01', text: 'Connect ANT Neuro EEG device via USB or Wi-Fi' },
-              { step: '02', text: 'Launch ANT Neuro eego software and start a recording session' },
-              { step: '03', text: 'Connect via LSL stream — FrictionFix will auto-detect the signal' },
-              { step: '04', text: 'Verify channel mapping and sampling rate (≥256 Hz recommended)' },
+              { step: '01', text: 'ANT Neuro eego streams EEG data via LSL on the local network' },
+              { step: '02', text: 'bridge.py picks up the LSL stream and forwards it over WebSocket' },
+              { step: '03', text: 'FrictionFix receives live channel data at ws://localhost:4514' },
+              { step: '04', text: 'Cognitive load is computed from alpha / beta band-power ratio' },
             ].map(({ step, text }) => (
               <div key={step} className="flex items-start gap-3">
                 <span className="text-[10px] text-white/20 pt-0.5 w-5 flex-shrink-0">{step}</span>
@@ -323,7 +322,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
           </div>
           <div className="mt-4 px-4 py-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
             <p className="text-white/20 text-xs">
-              LSL stream name: <span className="text-white/40">FrictionFix_EEG</span> · Port: <span className="text-white/40">4513</span>
+              WebSocket: <span className="text-white/40">ws://localhost:4514</span> · LSL type: <span className="text-white/40">EEG</span>
             </p>
           </div>
         </motion.div>
