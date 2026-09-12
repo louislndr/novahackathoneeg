@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, X, Brain, CheckCircle2 } from 'lucide-react'
 
@@ -196,7 +197,18 @@ export default function GazeTracker({
     return () => clearInterval(id)
   }, [sessionActive])
 
-  // Init WebGazer once when enabled
+  // Mouse fallback — always active when enabled so bubbles appear immediately
+  useEffect(() => {
+    if (!enabled) return
+    const handler = (e) => {
+      setGaze({ x: e.clientX, y: e.clientY })
+      spawnBubble(e.clientX, e.clientY)
+    }
+    window.addEventListener('mousemove', handler)
+    return () => window.removeEventListener('mousemove', handler)
+  }, [enabled, spawnBubble])
+
+  // Init WebGazer once when enabled (overrides mouse gaze when active)
   useEffect(() => {
     if (!enabled || initRef.current) return
 
@@ -343,7 +355,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
 
   if (!enabled) return null
 
-  return (
+  return createPortal(
     <>
       {/* Bubble trail */}
       {!calibrating && bubbles.map((bubble) => (
@@ -441,6 +453,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       <AnimatePresence>
         {calibrating && <CalibrationOverlay onDone={() => setCalibrating(false)} />}
       </AnimatePresence>
-    </>
+    </>,
+    document.body
   )
 }
