@@ -131,7 +131,7 @@ export default function App() {
       </div>
 
       <div className="relative z-10 flex w-full h-full">
-        <Sidebar screen={screen} setScreen={setScreen} sessionActive={sessionActive} hasResults={suggestions.length > 0} />
+        <Sidebar screen={screen} setScreen={setScreen} sessionActive={sessionActive} hasResults={suggestions.length > 0} eegMode={eegMode} gazeEnabled={gazeEnabled} />
         <div className="flex flex-col flex-1 min-w-0">
           <TopBar sessionActive={sessionActive} elapsed={elapsed} eegMode={eegMode} gazeEnabled={gazeEnabled} onNewSession={resetSession} />
           <main className="flex-1 overflow-hidden">

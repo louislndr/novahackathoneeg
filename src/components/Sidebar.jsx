@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Monitor, FileText, Radio, Activity } from 'lucide-react'
+import { Monitor, FileText, Radio, Activity, Brain, Eye } from 'lucide-react'
 
 const NAV = [
   { id: 'study', label: 'Live Study', icon: Monitor },
@@ -7,7 +7,7 @@ const NAV = [
   { id: 'signal', label: 'Signal Setup', icon: Radio },
 ]
 
-export default function Sidebar({ screen, setScreen, sessionActive, hasResults }) {
+export default function Sidebar({ screen, setScreen, sessionActive, hasResults, eegMode, gazeEnabled }) {
   return (
     <aside className="app-sidebar w-52 flex-shrink-0 border-r border-white/[0.08] flex flex-col">
       <div className="h-14 flex items-center px-4 border-b border-white/[0.05]">
@@ -51,6 +51,29 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults }
           )
         })}
       </nav>
+
+      {/* Signals status */}
+      <div className="px-4 py-3 border-t border-white/[0.05] space-y-2">
+        <p className="text-[11px] font-medium text-white/25">Signals</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-white/35 text-xs">
+            <Brain size={11} />
+            EEG
+          </div>
+          <span className={`text-[11px] font-medium ${eegMode === 'simulated' ? 'text-yellow-400' : 'text-white/20'}`}>
+            {eegMode === 'simulated' ? 'Simulated' : 'Off'}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-white/35 text-xs">
+            <Eye size={11} />
+            Eye tracking
+          </div>
+          <span className={`text-[11px] font-medium ${gazeEnabled ? 'text-violet-400' : 'text-white/20'}`}>
+            {gazeEnabled ? 'Active' : 'Off'}
+          </span>
+        </div>
+      </div>
 
       <div className="px-4 py-3 border-t border-white/[0.05]">
         <p className="text-[11px] text-white/15">v0.2.0 · Demo</p>
