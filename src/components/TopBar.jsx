@@ -17,7 +17,7 @@ export default function TopBar({ sessionActive, elapsed, eegMode, gazeEnabled, o
               transition={{ repeat: Infinity, duration: 1.5 }}
               className="w-1.5 h-1.5 rounded-full bg-mint-500"
             />
-            <span className="text-[13px] font-mono text-white/50">{formatMsLive(elapsed)}</span>
+            <span className="text-[13px] text-white/50">{formatMsLive(elapsed)}</span>
           </motion.div>
         )}
 

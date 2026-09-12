@@ -71,7 +71,7 @@ function CalibrationOverlay({ onDone }) {
             }`}>
               {complete
                 ? <CheckCircle2 size={14} className="text-green-400" />
-                : <span className="text-violet-400/60 text-[10px] font-mono">{count}/3</span>
+                : <span className="text-violet-400/60 text-[10px]">{count}/3</span>
               }
             </div>
             {!complete && (
@@ -110,7 +110,7 @@ function SuggestionCard({ suggestion, onDismiss }) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05]">
         <div className="flex items-center gap-1.5">
           <Sparkles size={11} className="text-violet-400" />
-          <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-widest">FrictionFix AI</span>
+          <span className="text-[10px] font-semibold text-violet-400">FrictionFix AI</span>
         </div>
         <button onClick={onDismiss} className="text-white/25 hover:text-white/70 transition-colors">
           <X size={12} />
@@ -120,12 +120,12 @@ function SuggestionCard({ suggestion, onDismiss }) {
       <div className="px-4 pt-3 pb-1">
         <div className="flex items-center gap-2 text-[10px] text-white/30 mb-2">
           <Brain size={9} />
-          <span>EEG load: <span className="text-red-400 font-mono">{suggestion.eegLoad}/100</span></span>
+          <span>EEG load: <span className="text-red-400">{suggestion.eegLoad}/100</span></span>
           <span>·</span>
           <span>Fixation: {FIXATION_MS / 1000}s</span>
         </div>
         {suggestion.elementLabel && (
-          <p className="text-[10px] text-white/25 font-mono mb-3 truncate">
+          <p className="text-[10px] text-white/25 mb-3 truncate">
             ↳ {suggestion.elementLabel}
           </p>
         )}
@@ -481,7 +481,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
                 <motion.div animate={eegLoad > LOAD_THRESHOLD ? { scale: [1, 1.35, 1] } : {}} transition={{ repeat: Infinity, duration: 0.8 }}>
                   <Brain size={11} className={eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400/60'} />
                 </motion.div>
-                <span className="text-[11px] font-mono text-white/45">
+                <span className="text-[11px] text-white/45">
                   EEG{' '}
                   <span className={`font-semibold ${eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400'}`}>
                     {eegLoad}

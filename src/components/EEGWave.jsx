@@ -88,7 +88,7 @@ export default function EEGWave({ active, hasError = false, height = 80, channel
     return (
       <div
         style={{ height }}
-        className="flex items-center justify-center text-white/15 text-xs font-mono"
+        className="flex items-center justify-center text-white/15 text-xs"
       >
         — no signal —
       </div>

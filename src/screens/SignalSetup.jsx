@@ -151,11 +151,11 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                     transition={{ delay: i * 0.05 }}
                     className="flex items-center gap-3"
                   >
-                    <span className="text-white/30 text-[11px] font-mono w-7 flex-shrink-0 text-right">{ch}</span>
+                    <span className="text-white/30 text-[11px] w-7 flex-shrink-0 text-right">{ch}</span>
                     <div className="flex-1 bg-[#0f0f0f] rounded-lg overflow-hidden" style={{ height: 44 }}>
                       <EEGWave active={true} height={44} channelIndex={i} />
                     </div>
-                    <span className="text-white/15 text-[10px] font-mono w-14 text-right flex-shrink-0">
+                    <span className="text-white/15 text-[10px] w-14 text-right flex-shrink-0">
                       {(Math.random() * 20 + 5).toFixed(1)} μV
                     </span>
                   </motion.div>
@@ -197,7 +197,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                   <div className="bg-violet-500/[0.06] border border-violet-500/20 rounded-lg p-3.5">
                     <div className="flex items-center gap-1.5 mb-2">
                       <Sparkles size={12} className="text-violet-400" />
-                      <span className="text-[11px] font-semibold text-violet-400 uppercase tracking-wider">How it works</span>
+                      <span className="text-[11px] font-semibold text-violet-400">How it works</span>
                     </div>
                     <div className="space-y-1.5 text-xs text-white/45 leading-relaxed">
                       <p>1. Webcam tracks your gaze in real time via WebGazer.js</p>
@@ -209,7 +209,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
 
                   {/* API key input */}
                   <div>
-                    <label className="flex items-center gap-1.5 text-[11px] font-medium text-white/40 uppercase tracking-wide mb-1.5">
+                    <label className="flex items-center gap-1.5 text-[11px] font-medium text-white/40 mb-1.5">
                       <Key size={10} />
                       Anthropic API Key
                     </label>
@@ -218,7 +218,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                       value={apiKey}
                       onChange={e => setApiKey(e.target.value)}
                       placeholder="sk-ant-..."
-                      className="input-base font-mono text-xs"
+                      className="input-base text-xs"
                       autoComplete="off"
                     />
                     <p className="text-white/20 text-[10px] mt-1.5">
@@ -257,13 +257,13 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
               { step: '04', text: 'Verify channel mapping and sampling rate (≥256 Hz recommended)' },
             ].map(({ step, text }) => (
               <div key={step} className="flex items-start gap-3">
-                <span className="text-[10px] font-mono text-white/20 pt-0.5 w-5 flex-shrink-0">{step}</span>
+                <span className="text-[10px] text-white/20 pt-0.5 w-5 flex-shrink-0">{step}</span>
                 <p className="text-white/40 text-sm leading-relaxed">{text}</p>
               </div>
             ))}
           </div>
           <div className="mt-4 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-            <p className="text-white/20 text-xs font-mono">
+            <p className="text-white/20 text-xs">
               LSL stream name: <span className="text-white/40">FrictionFix_EEG</span> · Port: <span className="text-white/40">4513</span>
             </p>
           </div>

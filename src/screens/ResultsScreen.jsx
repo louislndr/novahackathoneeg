@@ -54,7 +54,7 @@ export default function ResultsScreen({ suggestions, targetUrl, setScreen, reset
             <h1 className="text-2xl font-semibold">Friction Report</h1>
             <div className="flex items-center gap-2 mt-1">
               <Globe size={12} className="text-white/30" />
-              <span className="text-white/35 text-sm font-mono truncate max-w-sm">{targetUrl || '—'}</span>
+              <span className="text-white/35 text-sm truncate max-w-sm">{targetUrl || '—'}</span>
             </div>
           </div>
           <div className="flex gap-2">
@@ -84,15 +84,15 @@ export default function ResultsScreen({ suggestions, targetUrl, setScreen, reset
             { label: 'Avg EEG load', value: `${Math.round(suggestions.reduce((a, s) => a + s.eegLoad, 0) / suggestions.length)}/100` },
           ].map(({ label, value, accent }) => (
             <div key={label} className="panel p-4 text-center">
-              <p className="text-white/30 text-[10px] uppercase tracking-widest mb-1">{label}</p>
-              <p className={`text-2xl font-mono font-light ${accent ? 'text-red-400' : 'text-white'}`}>{value}</p>
+              <p className="text-white/30 text-[10px] mb-1">{label}</p>
+              <p className={`text-2xl font-light ${accent ? 'text-red-400' : 'text-white'}`}>{value}</p>
             </div>
           ))}
         </motion.div>
 
         {/* Friction points */}
         <motion.div variants={item}>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-white/30 mb-3">Detected friction points</p>
+          <p className="text-[11px] font-semibold text-white/30 mb-3">Detected friction points</p>
           <div className="space-y-3">
             {suggestions.map((s, i) => (
               <motion.div
@@ -103,7 +103,7 @@ export default function ResultsScreen({ suggestions, targetUrl, setScreen, reset
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-mono text-violet-400">{i + 1}</span>
+                      <span className="text-[10px] text-violet-400">{i + 1}</span>
                     </div>
                     <div>
                       <div className="flex items-center gap-2">

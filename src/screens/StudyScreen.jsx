@@ -44,12 +44,12 @@ function WebcamFeed({ active }) {
             transition={{ repeat: Infinity, duration: 1.6 }}
             className={`w-1.5 h-1.5 rounded-full ${ready ? 'bg-red-400' : 'bg-white/20'}`}
           />
-          <span className="text-[10px] font-semibold text-white/30 uppercase tracking-widest">
+          <span className="text-[10px] font-semibold text-white/30">
             {ready ? 'Live Camera' : denied ? 'Camera blocked' : 'Connecting…'}
           </span>
         </div>
         {ready && (
-          <span className="text-[9px] text-white/20 font-mono">participant view</span>
+          <span className="text-[9px] text-white/20">participant view</span>
         )}
       </div>
 
@@ -103,7 +103,7 @@ function EmptyPreview({ onLoad }) {
         <p className="text-white/25 text-sm">Enter a URL above to load a live preview</p>
       </div>
       <div>
-        <p className="text-white/20 text-xs mb-3 uppercase tracking-wider">Try these</p>
+        <p className="text-white/20 text-xs mb-3">Try these</p>
         <div className="flex flex-wrap gap-2 justify-center">
           {DEMO_SITES.map(({ label, url }) => (
             <button
@@ -135,7 +135,7 @@ function FrictionEntry({ entry, index }) {
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-1.5">
           <Sparkles size={10} className="text-mint-500 flex-shrink-0" />
-          <span className="text-[10px] font-semibold text-mint-500 uppercase tracking-wider">Friction detected</span>
+          <span className="text-[10px] font-semibold text-mint-500">Friction detected</span>
         </div>
         <button onClick={() => setDismissed(true)} className="text-white/20 hover:text-white/50 flex-shrink-0">
           <X size={11} />
@@ -143,15 +143,15 @@ function FrictionEntry({ entry, index }) {
       </div>
 
       <div className="flex items-center gap-3 mb-2">
-        <span className="text-[10px] text-white/25 font-mono">{formatMs(entry.sessionElapsed)}</span>
+        <span className="text-[10px] text-white/25">{formatMs(entry.sessionElapsed)}</span>
         <span className="text-[10px] text-white/20">·</span>
         <span className="text-[10px] text-white/25">
-          EEG <span className="text-red-400 font-mono">{entry.eegLoad}</span>/100
+          EEG <span className="text-red-400">{entry.eegLoad}</span>/100
         </span>
         {entry.elementLabel && (
           <>
             <span className="text-[10px] text-white/20">·</span>
-            <span className="text-[10px] text-white/30 font-mono truncate max-w-[80px]">{entry.elementLabel}</span>
+            <span className="text-[10px] text-white/30 truncate max-w-[80px]">{entry.elementLabel}</span>
           </>
         )}
       </div>
@@ -168,7 +168,7 @@ function ResearchPanel({ sessionActive, elapsed, eegMode, gazeEnabled, suggestio
     <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
       {/* Session controls */}
       <div className="panel p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-3">Session</p>
+        <p className="text-[10px] font-semibold text-white/30 mb-3">Session</p>
         {!sessionActive ? (
           <motion.button
             onClick={onStart}
@@ -187,7 +187,7 @@ function ResearchPanel({ sessionActive, elapsed, eegMode, gazeEnabled, suggestio
                 <motion.span animate={{ opacity: [1, 0.2, 1] }} transition={{ repeat: Infinity, duration: 1.5 }} className="w-1.5 h-1.5 rounded-full bg-mint-500" />
                 <span className="text-mint-500 text-xs font-medium">Recording</span>
               </div>
-              <span className="text-white/50 text-xs font-mono">{formatMsLive(elapsed)}</span>
+              <span className="text-white/50 text-xs">{formatMsLive(elapsed)}</span>
             </div>
             <motion.button
               onClick={onStop}
@@ -208,7 +208,7 @@ function ResearchPanel({ sessionActive, elapsed, eegMode, gazeEnabled, suggestio
 
       {/* Signal status */}
       <div className="panel p-4 space-y-2.5">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Signals</p>
+        <p className="text-[10px] font-semibold text-white/30">Signals</p>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-white/45 text-xs">
@@ -244,9 +244,9 @@ function ResearchPanel({ sessionActive, elapsed, eegMode, gazeEnabled, suggestio
       {/* Friction log */}
       <div className="panel p-4 flex-1 flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Friction Log</p>
+          <p className="text-[10px] font-semibold text-white/30">Friction log</p>
           {hasSuggestions && (
-            <span className="text-[10px] font-mono text-white/30">{suggestions.length} found</span>
+            <span className="text-[10px] text-white/30">{suggestions.length} found</span>
           )}
         </div>
 
@@ -371,7 +371,7 @@ export default function StudyScreen({
                 <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
                 <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
               </div>
-              <span className="text-[11px] text-white/25 font-mono truncate flex-1 text-center">
+              <span className="text-[11px] text-white/25 truncate flex-1 text-center">
                 {iframeUrl}
               </span>
               {loading && <Loader2 size={11} className="text-white/25 animate-spin flex-shrink-0" />}
