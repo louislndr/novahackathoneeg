@@ -150,7 +150,7 @@ let _wgReady = false
 
 export default function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, eegMode, elapsed, iframeRef, onSuggestion,
-  liveEegLoad, recalibrateKey,
+  onGaze, liveEegLoad, recalibrateKey,
 }) {
   const [gaze, setGaze] = useState(null)
   const [wgStatus, setWgStatus] = useState('idle') // 'idle' | 'loading' | 'calibrating' | 'tracking' | 'error'
@@ -361,7 +361,7 @@ export default function GazeTracker({
     const sinceLastTrigger = Date.now() - lastTriggerRef.current
 
     if (fixDuration >= FIXATION_MS && eegLoadRef.current >= LOAD_THRESHOLD && sinceLastTrigger >= MIN_TRIGGER_INTERVAL_MS) {
-      if (apiKey.trim() && targetUrl) {
+      if (targetUrl) {
         runAnalysis(x, y)
       }
     }
@@ -400,6 +400,16 @@ export default function GazeTracker({
       } catch {
         // Cross-origin — expected
       }
+    }
+
+    // Report fixation to backend (fire-and-forget)
+    onGaze?.({ elementLabel, x: gazeX, y: gazeY, pageUrl: targetUrl, dwellMs: FIXATION_MS })
+
+    // Claude API suggestion requires an API key
+    if (!apiKey.trim()) {
+      setIsAnalyzing(false)
+      lockedRef.current = false
+      return
     }
 
     const rect = iframeRef?.current?.getBoundingClientRect()
@@ -452,7 +462,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       setIsAnalyzing(false)
       lockedRef.current = false
     }
-  }, [apiKey, targetUrl, iframeRef, onSuggestion])
+  }, [apiKey, targetUrl, iframeRef, onSuggestion, onGaze])
 
   // Recalibrate trigger from TopBar button
   useEffect(() => {

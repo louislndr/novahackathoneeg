@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react'
 import Sidebar from './components/Sidebar'
@@ -6,6 +6,7 @@ import TopBar from './components/TopBar'
 import StudyScreen from './screens/StudyScreen'
 import ResultsScreen from './screens/ResultsScreen'
 import SignalSetup from './screens/SignalSetup'
+import { FrictionFixClient } from './lib/frictionfix'
 
 export function formatMs(ms) {
   if (ms == null) return '—'
@@ -42,7 +43,9 @@ export default function App() {
   const [eegWsStatus, setEegWsStatus] = useState('idle') // 'idle'|'connecting'|'connected'|'error'
   const [liveEegLoad, setLiveEegLoad] = useState(null)
   const [recalibrateKey, setRecalibrateKey] = useState(0)
+  const [backendFrictionEvents, setBackendFrictionEvents] = useState([])
   const eegWsRef = useRef(null)
+  const backendSessionRef = useRef(null)
 
   useEffect(() => {
     if (eegMode !== 'live') {
@@ -73,18 +76,62 @@ export default function App() {
     return () => clearInterval(id)
   }, [sessionActive, startTime])
 
-  function startSession() {
+  async function startSession() {
     setSuggestions([])
+    setBackendFrictionEvents([])
     const t = Date.now()
     setStartTime(t)
     setElapsed(0)
     setSessionActive(true)
+
+    if (targetUrl) {
+      try {
+        const client = new FrictionFixClient()
+        const session = await client.create({
+          participant_id: 'demo',
+          website_url: targetUrl,
+          source: 'manual',
+          policy: 'behavior_only',
+        })
+        await client.start(session.session_id)
+        backendSessionRef.current = { id: session.session_id, client }
+      } catch {
+        // Backend is optional — silently ignore if unavailable
+      }
+    }
   }
 
-  function stopSession() {
+  async function stopSession() {
     setSessionActive(false)
-    if (suggestions.length > 0) setScreen('results')
+    setScreen('results')
+
+    if (backendSessionRef.current) {
+      const { id, client } = backendSessionRef.current
+      backendSessionRef.current = null
+      try {
+        await client.end(id, 'completed')
+        const data = await client.frictionEvents(id)
+        if (data.friction_events?.length > 0) {
+          setBackendFrictionEvents(data.friction_events)
+        }
+      } catch {}
+    }
   }
+
+  const sendGaze = useCallback(async ({ elementLabel, x, y, pageUrl, dwellMs }) => {
+    const session = backendSessionRef.current
+    if (!session) return
+    try {
+      await session.client.gaze(session.id, {
+        element_id: elementLabel && elementLabel !== 'unknown element' ? elementLabel : undefined,
+        page_url: pageUrl,
+        dwell_ms: dwellMs,
+        confidence: 0.8,
+        x,
+        y,
+      })
+    } catch {}
+  }, [])
 
   function addSuggestion(entry) {
     setSuggestions(prev => [{ ...entry, id: Date.now(), sessionElapsed: elapsed }, ...prev])
@@ -93,8 +140,14 @@ export default function App() {
   function resetSession() {
     setSessionActive(false)
     setSuggestions([])
+    setBackendFrictionEvents([])
     setElapsed(0)
     setStartTime(null)
+    if (backendSessionRef.current) {
+      const { id, client } = backendSessionRef.current
+      backendSessionRef.current = null
+      client.end(id, 'abandoned').catch(() => {})
+    }
     setScreen('study')
   }
 
@@ -110,6 +163,8 @@ export default function App() {
     startSession, stopSession, resetSession,
     eegWsStatus, liveEegLoad,
     recalibrateKey,
+    backendFrictionEvents,
+    sendGaze,
   }
 
   return (

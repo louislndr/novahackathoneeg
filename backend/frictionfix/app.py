@@ -66,7 +66,7 @@ def create_app(data_path=None, clock=None, suggestion_service=None):
                              "labelled. Friction events describe likely difficulty supported "
                              "by experimental/behavioural evidence, not a validated diagnosis.")
     app.state.manager = manager
-    origins = os.environ.get("FRICTIONFIX_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000").split(",")
+    origins = os.environ.get("FRICTIONFIX_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5175,http://127.0.0.1:5175").split(",")
     app.add_middleware(CORSMiddleware, allow_origins=origins,
                        allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
