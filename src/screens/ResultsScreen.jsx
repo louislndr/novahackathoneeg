@@ -126,7 +126,7 @@ export default function ResultsScreen({ targetUrl, setScreen, setTargetUrl, rese
             { label: 'Avg EEG load', value: `${Math.round(suggestions.reduce((a, s) => a + s.eegLoad, 0) / suggestions.length)}/100` },
           ].map(({ label, value, accent }) => (
             <div key={label} className="panel p-4 text-center">
-              <p className="text-white/30 text-[10px] uppercase tracking-widest mb-1">{label}</p>
+              <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest mb-1">{label}</p>
               <p className={`text-2xl font-mono font-light ${accent ? 'text-red-400' : 'text-white'}`}>{value}</p>
             </div>
           ))}
@@ -134,61 +134,55 @@ export default function ResultsScreen({ targetUrl, setScreen, setTargetUrl, rese
 
         {/* Friction points */}
         <motion.div variants={item}>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-white/30 mb-3">Detected friction points</p>
-          <div className="space-y-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-3">Detected friction points</p>
+          <div className="space-y-2.5">
             {suggestions.map((s, i) => (
               <motion.div
                 key={s.id ?? i}
                 variants={item}
-                className="panel p-5"
+                className="panel-sm p-4"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-mono text-violet-400">{i + 1}</span>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-white/70">
-                          {s.elementLabel && s.elementLabel !== 'unknown element'
-                            ? s.elementLabel
-                            : 'Page region'}
-                        </span>
-                        {s.eegLoad >= 70 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-400/10 text-red-400 border border-red-400/20">
-                            High load
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-[10px] text-white/25 flex items-center gap-1">
-                          <Clock size={8} />
-                          {formatMs(s.sessionElapsed)}
-                        </span>
-                        <span className="text-[10px] text-white/25 flex items-center gap-1">
-                          <Brain size={8} />
-                          EEG {s.eegLoad}/100
-                        </span>
-                      </div>
-                    </div>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-white/20 font-mono text-[10px] flex-shrink-0">{String(i + 1).padStart(2, '0')}</span>
+                    <Sparkles size={11} className="text-mint-500 flex-shrink-0" />
+                    <span className="text-xs font-medium text-white/70 truncate">
+                      {s.elementLabel && s.elementLabel !== 'unknown element'
+                        ? s.elementLabel
+                        : 'Page region'}
+                    </span>
                   </div>
-                  <Sparkles size={13} className="text-violet-400/60 flex-shrink-0" />
+                  {s.eegLoad >= 70 && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-medium flex-shrink-0">
+                      High load
+                    </span>
+                  )}
                 </div>
 
-                <div className="bg-violet-500/[0.06] border border-violet-500/15 rounded-lg p-3.5">
-                  <p className="text-white/80 text-sm leading-relaxed">{s.suggestion ?? s.text}</p>
+                <div className="flex items-center gap-3 mb-2 pl-[19px]">
+                  <span className="text-[10px] text-white/25 flex items-center gap-1">
+                    <Clock size={9} />
+                    {formatMs(s.sessionElapsed)}
+                  </span>
+                  <span className="text-[10px] text-white/20">·</span>
+                  <span className="text-[10px] text-white/25 flex items-center gap-1">
+                    <Brain size={9} />
+                    EEG <span className="font-mono text-white/40">{s.eegLoad}</span>/100
+                  </span>
                 </div>
+
+                <p className="text-white/70 text-[13px] leading-relaxed pl-[19px]">{s.suggestion ?? s.text}</p>
               </motion.div>
             ))}
           </div>
         </motion.div>
 
         {/* Suggested improvement */}
-        <motion.div variants={item} className="panel p-5 border border-mint-500/20">
+        <motion.div variants={item} className="panel p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-1.5 mb-1.5">
-                <Sparkles size={12} className="text-mint-500" />
+                <Sparkles size={11} className="text-mint-500" />
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-mint-500">Suggested improvement</span>
               </div>
               <p className="text-white/70 text-sm font-medium mb-1">
