@@ -13,7 +13,8 @@ Run each session:
     2. Pair it via Bluetooth on your computer
     3. Find its serial port (see below) and run:
        Mac/Linux:  python3 bridge_unicorn.py --serial /dev/tty.UN-XXXXXXXX-SerialPort
-       Windows:    python3 bridge_unicorn.py --serial COM3
+       Windows:    python  bridge_unicorn.py --serial COM3
+                   (Windows uses "python" not "python3" — install from python.org, not Microsoft Store)
 
 Finding the serial port:
     Mac:     ls /dev/tty.UN-*

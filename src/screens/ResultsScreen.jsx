@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Download, ArrowLeft, Sparkles, Brain, Globe, Clock, Info, AlertTriangle, Activity } from 'lucide-react'
+import { Download, Sparkles, Brain, Globe, Clock, Info, AlertTriangle, Activity } from 'lucide-react'
 import { formatMs } from '../App'
 
 const EVIDENCE_LABELS = {
@@ -41,22 +41,8 @@ function download(suggestions, backendFrictionEvents, targetUrl) {
   URL.revokeObjectURL(url)
 }
 
-export default function ResultsScreen({ suggestions, backendFrictionEvents = [], targetUrl, setScreen, resetSession }) {
+export default function ResultsScreen({ suggestions, backendFrictionEvents = [], targetUrl, resetSession }) {
   const hasData = suggestions?.length > 0 || backendFrictionEvents.length > 0
-
-  if (!hasData) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-white/30 text-sm mb-4">No friction points recorded yet.</p>
-          <button onClick={() => setScreen('study')} className="btn-ghost">
-            <ArrowLeft size={13} />
-            Back to study
-          </button>
-        </div>
-      </div>
-    )
-  }
 
   const container = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } }
   const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.22 } } }
@@ -119,6 +105,16 @@ export default function ResultsScreen({ suggestions, backendFrictionEvents = [],
             </div>
           ))}
         </motion.div>
+
+        {!hasData && (
+          <motion.div variants={item} className="panel p-5 flex items-center gap-3">
+            <Info size={15} className="text-mint-500 flex-shrink-0" />
+            <div>
+              <p className="text-sm text-white/70">No friction points detected.</p>
+              <p className="text-xs text-white/30 mt-0.5">The session completed successfully, but no gaze, EEG, or behavior threshold was crossed.</p>
+            </div>
+          </motion.div>
+        )}
 
         {/* Backend friction events */}
         {backendFrictionEvents.length > 0 && (

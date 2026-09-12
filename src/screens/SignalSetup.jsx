@@ -47,31 +47,34 @@ const DEVICES = {
   eego: {
     name: 'ANT Neuro eego™mylab',
     channels: 24,
-    bridge: 'python3 bridge.py',
     steps: [
       'Open ANT Neuro eego software and start a recording',
       'Enable LSL streaming: Extras → LSL → Start',
       'On the same machine as your browser, run:',
     ],
-    extra: 'If auto-discovery fails, pass the IP directly: python3 bridge.py --eeg-host 192.168.x.x',
+    bridge:    'python3 bridge.py',
+    bridgeWin: 'python bridge.py',
+    setup:     'pip install pylsl websockets numpy',
   },
   unicorn: {
     name: 'g.tec Unicorn Hybrid Black',
     channels: 8,
-    bridge: 'python3 bridge_unicorn.py --serial /dev/tty.UN-XXXXXXXX-SerialPort',
-    bridgeWin: 'python3 bridge_unicorn.py --serial COM3',
     steps: [
-      'Power on the Unicorn and pair it via Bluetooth on your laptop',
-      'Close Unicorn Suite if open (it locks the port)',
-      'Find your serial port:  Mac → ls /dev/tty.UN-*   Windows → Device Manager → Ports',
-      'On the same machine as your browser, run:',
+      'Install Python from python.org (NOT Microsoft Store)',
+      'Power on the Unicorn and pair it via Bluetooth',
+      'Close Unicorn Suite if open — it locks the port',
+      'Find serial port:  Mac → ls /dev/tty.UN-*   Windows → Device Manager → Ports (COM & LPT)',
+      'Run the bridge:',
     ],
-    extra: 'Install deps once: pip install brainflow websockets numpy',
+    bridge:    'python3 bridge_unicorn.py --serial /dev/tty.UN-XXXXXXXX-SerialPort',
+    bridgeWin: 'python bridge_unicorn.py --serial COM3',
+    setup:     'pip install brainflow websockets numpy',
   },
 }
 
 export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeEnabled, eegWsStatus, eegStreamInfo }) {
   const [selectedDevice, setSelectedDevice] = useState('eego')
+  const [winOpen, setWinOpen] = useState(false)
   const live = eegMode === 'live'
 
   const connectedDevice = eegStreamInfo?.device ?? null
@@ -150,7 +153,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
 
             {/* Error: bridge not running */}
             {live && effectiveStatus === 'error' && (
-              <div className="rounded-lg bg-red-400/[0.06] border border-red-400/15 px-3 py-3 space-y-2">
+              <div className="rounded-lg bg-red-400/[0.06] border border-red-400/15 px-3 py-3 space-y-2.5">
                 <p className="text-xs text-red-400/80 font-medium">Bridge not running</p>
                 <ol className="space-y-1">
                   {device.steps.map((step, i) => (
@@ -159,12 +162,23 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                     </li>
                   ))}
                 </ol>
-                <code className="block text-[11px] font-mono bg-white/[0.05] text-white/60 px-2 py-1.5 rounded break-all">
-                  {device.bridge}
-                </code>
-                {device.extra && (
-                  <p className="text-[10px] text-white/20 leading-relaxed">{device.extra}</p>
-                )}
+                <div className="space-y-1.5">
+                  <div>
+                    <p className="text-[10px] text-white/20 mb-0.5">Mac / Linux</p>
+                    <code className="block text-[11px] font-mono bg-white/[0.05] text-white/60 px-2 py-1.5 rounded break-all">
+                      {device.bridge}
+                    </code>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-white/20 mb-0.5">Windows — use <span className="text-white/40">python</span> not <span className="text-white/40">python3</span></p>
+                    <code className="block text-[11px] font-mono bg-white/[0.05] text-white/60 px-2 py-1.5 rounded break-all">
+                      {device.bridgeWin}
+                    </code>
+                  </div>
+                </div>
+                <p className="text-[10px] text-white/20">
+                  Install deps first: <code className="font-mono bg-white/[0.04] px-1 rounded">{device.setup}</code>
+                </p>
                 <p className="text-[10px] text-white/20">Then toggle off and back on to reconnect.</p>
               </div>
             )}
@@ -195,9 +209,70 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                 <code className="block text-[11px] font-mono bg-white/[0.04] text-white/40 px-2 py-1.5 rounded break-all">
                   {device.bridge}
                 </code>
+                <p className="text-[10px] text-white/15">Windows: use <span className="text-white/30">python</span> not <span className="text-white/30">python3</span></p>
               </div>
             )}
           </div>
+        </motion.div>
+
+        {/* Windows setup guide */}
+        <motion.div variants={item} className="panel p-5">
+          <button
+            onClick={() => setWinOpen(w => !w)}
+            className="w-full flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Windows Setup Guide</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.05] text-white/30 font-mono">python not found?</span>
+            </div>
+            <ChevronDown size={14} className={`text-white/30 transition-transform duration-200 ${winOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {winOpen && (
+            <div className="mt-4 space-y-4 text-[11px] text-white/40 leading-relaxed">
+
+              <div className="space-y-2">
+                <p className="text-white/60 font-medium text-xs">1 — Install Python correctly</p>
+                <p>Do <span className="text-red-400/80">not</span> use the Microsoft Store version — it's a stub that breaks pip. Go to:</p>
+                <code className="block font-mono bg-white/[0.05] text-white/60 px-2 py-1.5 rounded">
+                  https://www.python.org/downloads/
+                </code>
+                <p>Download the installer. On the first screen, check <span className="text-white/60">"Add Python to PATH"</span> before clicking Install.</p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-white/60 font-medium text-xs">2 — Disable the Microsoft Store alias</p>
+                <p>Even after installing real Python, Windows may intercept <code className="font-mono bg-white/[0.04] px-1 rounded text-white/50">python</code> and open the Store. Fix it:</p>
+                <ol className="space-y-1 ml-2">
+                  <li><span className="text-white/25">1.</span> Open <span className="text-white/60">Settings → Apps → Advanced app settings → App execution aliases</span></li>
+                  <li><span className="text-white/25">2.</span> Turn <span className="text-white/60">OFF</span> both <code className="font-mono bg-white/[0.04] px-1 rounded text-white/50">python.exe</code> and <code className="font-mono bg-white/[0.04] px-1 rounded text-white/50">python3.exe</code></li>
+                  <li><span className="text-white/25">3.</span> Open a new terminal — <code className="font-mono bg-white/[0.04] px-1 rounded text-white/50">python --version</code> should now print a version number</li>
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-white/60 font-medium text-xs">3 — Install dependencies</p>
+                <p>In a terminal (cmd or PowerShell), run:</p>
+                <code className="block font-mono bg-white/[0.05] text-white/60 px-2 py-1.5 rounded">
+                  pip install brainflow websockets numpy
+                </code>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-white/60 font-medium text-xs">4 — Find the Unicorn serial port</p>
+                <p>With the Unicorn paired via Bluetooth, open <span className="text-white/60">Device Manager → Ports (COM &amp; LPT)</span> and look for an entry containing "Unicorn" or "Standard Serial". Note the COM number (e.g. COM3).</p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-white/60 font-medium text-xs">5 — Run the bridge</p>
+                <code className="block font-mono bg-white/[0.05] text-white/60 px-2 py-1.5 rounded">
+                  python bridge_unicorn.py --serial COM3
+                </code>
+                <p>Replace COM3 with your actual port. Then toggle Live EEG on in the app.</p>
+              </div>
+
+            </div>
+          )}
         </motion.div>
 
         {/* Eye tracking */}

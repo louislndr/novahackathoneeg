@@ -463,7 +463,10 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       initRef.current = false
       wgStatusRef.current = 'error'
       setWgStatus('error')
-      setWgError(err?.message || 'Camera access denied or unavailable')
+      const cameraBlocked = err?.name === 'NotAllowedError' || /permission|denied/i.test(err?.message || '')
+      setWgError(cameraBlocked
+        ? 'Camera access is blocked. Allow camera access for localhost, then retry.'
+        : err?.message || 'Camera access is unavailable')
     })
   }, [enabled, gazeListener, retryCount]) // retryCount forces re-run on retry
 
@@ -563,7 +566,14 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
                 _wg = null
                 setWgError(null)
                 setWgStatus('calibrating')
-                setRetryCount(c => c + 1)
+                const retry = async () => {
+                  try {
+                    const stream = await navigator.mediaDevices?.getUserMedia({ video: true })
+                    stream?.getTracks().forEach(track => track.stop())
+                  } catch {}
+                  setRetryCount(c => c + 1)
+                }
+                retry()
               }}
               className="ml-1 text-[10px] text-white/40 hover:text-white/70 underline underline-offset-2"
             >

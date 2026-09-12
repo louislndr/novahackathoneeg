@@ -253,7 +253,7 @@ export default function App() {
           screen={screen}
           setScreen={setScreen}
           sessionActive={sessionActive}
-          hasResults={suggestions.length > 0}
+          hasResults={suggestions.length > 0 || backendFrictionEvents.length > 0}
           eegMode={eegMode}
           gazeEnabled={gazeEnabled}
         />
