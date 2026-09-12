@@ -6,6 +6,7 @@ import TopBar from './components/TopBar'
 import StudyScreen from './screens/StudyScreen'
 import ResultsScreen from './screens/ResultsScreen'
 import SignalSetup from './screens/SignalSetup'
+import EEGDataScreen from './screens/EEGDataScreen'
 import { FrictionFixClient } from './lib/frictionfix'
 
 export function formatMs(ms) {
@@ -42,6 +43,9 @@ export default function App() {
   const [elapsed, setElapsed] = useState(0)
   const [eegWsStatus, setEegWsStatus] = useState('idle')
   const [liveEegLoad, setLiveEegLoad] = useState(null)
+  const [liveEegChannels, setLiveEegChannels] = useState([])
+  const [eegStreamInfo, setEegStreamInfo] = useState(null)
+  const eegHistoryRef = useRef([]) // circular buffer: last 100 samples per channel
   const [recalibrateKey, setRecalibrateKey] = useState(0)
   const [backendFrictionEvents, setBackendFrictionEvents] = useState([])
 
@@ -60,6 +64,9 @@ export default function App() {
       eegWsRef.current = null
       setEegWsStatus('idle')
       setLiveEegLoad(null)
+      setLiveEegChannels([])
+      setEegStreamInfo(null)
+      eegHistoryRef.current = []
       return
     }
     setEegWsStatus('connecting')
@@ -72,9 +79,17 @@ export default function App() {
       try {
         const d = JSON.parse(e.data)
         if (d.status === 'searching') setEegWsStatus('searching')
-        else if (d.status === 'connected') setEegWsStatus('connected')
-        else if (d.status === 'error') setEegWsStatus('error')
+        else if (d.status === 'connected') {
+          setEegWsStatus('connected')
+          setEegStreamInfo({ name: d.name, channels: d.channels, srate: d.srate, host: d.host })
+        } else if (d.status === 'error') setEegWsStatus('error')
         if (typeof d.eegLoad === 'number') setLiveEegLoad(d.eegLoad)
+        if (Array.isArray(d.channels)) {
+          setLiveEegChannels(d.channels)
+          const hist = eegHistoryRef.current
+          hist.push(d.channels)
+          if (hist.length > 100) hist.shift()
+        }
       } catch {}
     }
     return () => { ws.close(); eegWsRef.current = null }
@@ -177,7 +192,7 @@ export default function App() {
     suggestions, addSuggestion,
     elapsed,
     startSession, stopSession, resetSession,
-    eegWsStatus, liveEegLoad,
+    eegWsStatus, liveEegLoad, liveEegChannels, eegStreamInfo, eegHistoryRef,
     recalibrateKey,
     backendFrictionEvents,
     sendGaze,
@@ -262,6 +277,11 @@ export default function App() {
               {screen === 'signal' && (
                 <motion.div key="signal" variants={slide} initial="initial" animate="animate" exit="exit" className="h-full">
                   <SignalSetup {...ctx} />
+                </motion.div>
+              )}
+              {screen === 'eeg' && (
+                <motion.div key="eeg" variants={slide} initial="initial" animate="animate" exit="exit" className="h-full">
+                  <EEGDataScreen {...ctx} />
                 </motion.div>
               )}
             </AnimatePresence>

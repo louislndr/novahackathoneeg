@@ -1,11 +1,12 @@
 import { memo } from 'react'
 import { motion } from 'framer-motion'
-import { Monitor, FileText, Radio, Brain, Eye } from 'lucide-react'
+import { Monitor, FileText, Radio, Brain, Eye, Activity } from 'lucide-react'
 
 const NAV = [
-  { id: 'study', label: 'Live Study', icon: Monitor },
+  { id: 'study',   label: 'Live Study',     icon: Monitor },
+  { id: 'eeg',     label: 'EEG Signal',     icon: Activity },
   { id: 'results', label: 'Friction Report', icon: FileText },
-  { id: 'signal', label: 'Signal Setup', icon: Radio },
+  { id: 'signal',  label: 'Signal Setup',   icon: Radio },
 ]
 
 function Logo() {
@@ -42,7 +43,7 @@ function Sidebar({ screen, setScreen, sessionActive, hasResults, eegMode, gazeEn
       <nav className="flex-1 px-2.5 py-4 space-y-0.5">
         {NAV.map(({ id, label, icon: Icon }) => {
           const active = screen === id
-          const disabled = id === 'results' && !hasResults
+          const disabled = (id === 'results' && !hasResults)
 
           return (
             <motion.button
