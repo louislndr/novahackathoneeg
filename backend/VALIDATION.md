@@ -4,14 +4,21 @@ These are development checks, not clinical or commercial validation.
 
 ## Automated tests
 
-`python -m pytest -q`: **15 passed** on Python 3.12 / Linux.
+`python -m pytest -q`: **29 passed** on Python 3.13 / Windows.
 
 The tests cover spectral features, raw artifact rejection, ANT DC-offset handling,
-source units, chunk gaps/reordering, event retries, correctness invalidation after
-edits, completion rules, real accumulated timings, calibration minimums, poor/stale
-signal suppression, EEG-plus-behaviour triggering, acknowledged layout changes,
-same-participant model reuse, HTTP error responses, JSON export, persistence after
-restart, layout comparison, WebSocket state and CORS.
+source units, chunk gaps/reordering; strict per-type browser-event validation, event and
+gaze idempotency/retry-conflict handling, timestamp-ordering rejection, per-session rate
+limiting; gaze evidence gating by dwell/confidence; the friction engine's scoring
+(evidence-weight sums, severity bands), evidence deduplication within a merge window,
+episode-vs-new-episode boundaries, `behavior_only` excluding EEG evidence, and `observe`
+producing no friction events at all; researcher-labelled calibration intervals
+(`low_friction`/`high_friction`/`invalid`) including exclusion of invalid intervals from
+the fitted dataset and same-participant model reuse; a mocked Gemini suggestion service
+(structured output, per-friction-event caching) and a failing one (HTTP 503 while the
+rest of the API keeps working, without any real Vertex AI call); HTTP error responses,
+JSON export (no raw EEG samples), persistence/interruption after restart, WebSocket state
+and CORS.
 
 Synthetic alpha/theta signals intentionally create separable classes in the model
 test. Its perfect synthetic CV result is **not a participant accuracy claim**.
@@ -92,10 +99,11 @@ python -m frictionfix.evaluate --train-cnt session-01.cnt --train-trg session-01
 ## Not verified
 
 - ANT cap acquisition, vendor SDK access, Windows device drivers, or the live electrode setup.
-- Actual participant calibration and prediction on the teammate's booking form.
-- Frontend rendering, form validation correctness and final UI/backend integration.
+- Actual participant calibration and prediction on the teammate's real website.
+- Frontend rendering, gaze accuracy and final UI/backend integration.
 - fNIRS acquisition or processing.
-- Better usability outcomes caused by EEG beyond a behaviour-only policy.
+- A real Vertex AI call (the suggestion tests use a mock/failing service by design).
+- Better usability outcomes caused by EEG or gaze beyond a behaviour-only policy.
 - Larger-scale, independent-participant performance or paid-customer usefulness.
 
 Those need hardware, the teammate's UI, and real supervised experiments. Do not

@@ -42,7 +42,7 @@ def main():
             with httpx.Client(base_url=url, timeout=15, trust_env=False) as client:
                 if args.replay_file:
                     response = client.post("/sessions", json={
-                        "participant_id": "recorded-pipeline-check", "field_ids": ["test"],
+                        "participant_id": "recorded-pipeline-check", "website_url": "https://example.test",
                         "source": "replay", "policy": "observe"})
                     response.raise_for_status()
                     sid = response.json()["session_id"]
@@ -68,7 +68,7 @@ def check_lsl(client, url):
     from pylsl import StreamInfo, StreamOutlet, local_clock
     name = "FrictionFixSyntheticTest-" + uuid4().hex[:8]
     response = client.post("/sessions", json={
-        "participant_id": "synthetic-lsl-transport-check", "field_ids": ["test"],
+        "participant_id": "synthetic-lsl-transport-check", "website_url": "https://example.test",
         "source": "live", "sample_rate": 128, "channel_names": ["F3", "F4"], "policy": "observe"})
     response.raise_for_status()
     sid = response.json()["session_id"]

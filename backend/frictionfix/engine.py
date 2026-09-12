@@ -1,4 +1,4 @@
-"""Team: TO FILL | Members: TO FILL. Experiment lifecycle and closed-loop policy."""
+"""Team: TO FILL | Members: TO FILL. Observation-session lifecycle and evidence routing."""
 
 from collections import deque
 from dataclasses import asdict
@@ -11,10 +11,17 @@ from uuid import uuid4
 import numpy as np
 
 from .calibration import fit_calibration
-from .schemas import SessionConfig, BehaviorEvent, EEGChunk, TrialOutcome
+from .friction import FrictionEngine
+from .schemas import SessionConfig, EEGChunk, CalibrationLabel
 from .signal import WindowBuffer, extract_features, FEATURE_NAMES
 
 STALE_SECONDS = 4.0
+CLIENT_TS_TOLERANCE_SECONDS = 5.0
+MAX_EVENTS_PER_SECOND = 40
+
+
+class RateLimitExceeded(Exception):
+    """Too many events/gaze observations arrived in the last second for this session."""
 
 
 class Session:
@@ -24,18 +31,19 @@ class Session:
         self.clock = clock
         self.created_at = clock()
         self.phase = "setup"
-        self.layout = config.initial_layout
         self.started_at = None
         self.ended_at = None
-        self.field_started = None
-        self.focused_field = None
-        self.fields = {f: {"errors": 0, "valid": False, "focused_seconds": 0.0}
-                       for f in config.field_ids}
+        self.end_reason = None
+        self.current_page = None
+        self.current_element = None
         self.events = []
         self.event_ids = set()
-        self.recent_errors = deque()
-        self.layout_changes = []
-        self.pending_adaptation = None
+        self.last_client_ts = None
+        self.recent_receipts = deque()
+        self.gaze = []
+        self.gaze_ids = set()
+        self.friction = FrictionEngine(config)
+        self.pending_auto_suggest = []
         self.buffer = WindowBuffer(config.sample_rate, len(config.channel_names))
         self.windows = deque(maxlen=2)
         self.total_windows = 0
@@ -69,26 +77,24 @@ class Session:
 
     def start_trial(self):
         if self.phase != "calibrating" or self.active_trial:
-            raise ValueError("Start one calibration trial at a time while calibrating")
+            raise ValueError("Start one calibration interval at a time while calibrating")
         self._reset_signal()
         self.active_trial = {"id": str(uuid4()), "started_at": self.clock(), "windows": []}
         return self.active_trial["id"]
 
-    def end_trial(self, outcome: TrialOutcome):
+    def end_trial(self, outcome: CalibrationLabel):
         if self.phase != "calibrating" or not self.active_trial:
-            raise ValueError("No active calibration trial")
+            raise ValueError("No active calibration interval")
         trial = self.active_trial
         now = self.clock()
         self.tick()
         if len(trial["windows"]) < 2 or self.quality != "usable":
-            raise ValueError("Need two consecutive usable EEG windows immediately before the outcome")
+            raise ValueError("Need two consecutive usable EEG windows immediately before the label")
         elapsed = now - trial["started_at"]
-        # Only EEG from this trial, received before outcome submission, is used.
+        label_map = {"low_friction": 0, "high_friction": 1, "invalid": None}
         record = {
             "trial_id": trial["id"], "elapsed_seconds": elapsed,
-            "success": outcome.success, "errors": outcome.errors,
-            "label": int(not outcome.success or outcome.errors > 0
-                         or elapsed >= self.config.hesitation_seconds),
+            "label": outcome.label, "target": label_map[outcome.label],
             "features": np.mean(trial["windows"][-2:], axis=0).tolist(),
         }
         self.trials.append(record)
@@ -97,26 +103,40 @@ class Session:
 
     def cancel_trial(self):
         if self.phase != "calibrating" or self.active_trial is None:
-            raise ValueError("No active calibration trial")
+            raise ValueError("No active calibration interval")
         self.active_trial = None
         self._reset_signal()
 
     def fit(self):
         if self.phase != "calibrating" or self.active_trial:
-            raise ValueError("Finish or cancel the active trial before fitting")
-        self.model, self.calibration_report = fit_calibration(self.trials)
+            raise ValueError("Finish or cancel the active interval before fitting")
+        usable = [{"features": t["features"], "label": t["target"]}
+                  for t in self.trials if t["target"] is not None]
+        self.model, self.calibration_report = fit_calibration(usable)
         self.phase = "ready"
         self._reset_signal()
 
-    def start_task(self):
+    def start_observation(self):
         if self.phase not in {"setup", "ready"}:
-            raise ValueError("Task can start only once, after setup or calibration")
-        self.phase = "running"
+            raise ValueError("Observation can start only once, after setup or calibration")
+        self.phase = "observing"
         self.started_at = self.clock()
         self._reset_signal()
 
+    def end_observation(self, reason=None):
+        if self.phase == "ended":
+            return  # ending an already-ended session is a safe no-op (retry-safe)
+        if self.phase != "observing":
+            raise ValueError("Start observation before ending it")
+        closed = self.friction.flush()
+        if self.config.auto_suggest:
+            self.pending_auto_suggest.extend(r for r in closed if r["severity"] == "high")
+        self.ended_at = self.clock()
+        self.phase = "ended"
+        self.end_reason = reason
+
     def ingest(self, chunk: EEGChunk):
-        if self.phase in {"completed", "abandoned"}:
+        if self.phase == "ended":
             raise ValueError("Session has ended")
         if self.config.source == "manual" or chunk.source != self.config.source:
             raise ValueError("Chunk source must match the session; replay cannot masquerade as live")
@@ -151,75 +171,75 @@ class Session:
             self.windows.append(result.features)
             if self.phase == "calibrating" and self.active_trial:
                 self.active_trial["windows"].append(result.features)
-            if self.phase == "running" and self.model is not None and len(self.windows) == 2:
+            if self.phase == "observing" and self.model is not None and len(self.windows) == 2:
                 vector = np.mean(self.windows, axis=0).reshape(1, -1)
                 self.risk_score = float(self.model.predict_proba(vector)[0, 1])
                 self.high_windows = (self.high_windows + 1
                                      if self.risk_score >= self.config.risk_threshold else 0)
+                if self.high_windows >= self.config.consecutive_windows:
+                    elapsed = self.clock() - self.started_at
+                    page = self.current_page or self.config.website_url
+                    self.friction.ingest_eeg_risk(page, self.current_element, elapsed)
         self.tick()
 
-    def _close_focus(self, now):
-        if self.focused_field is not None:
-            self.fields[self.focused_field]["focused_seconds"] += now - self.field_started
-        self.focused_field = None
-        self.field_started = None
+    def _check_rate_limit(self):
+        now = self.clock()
+        self.recent_receipts.append(now)
+        while self.recent_receipts and now - self.recent_receipts[0] > 1.0:
+            self.recent_receipts.popleft()
+        if len(self.recent_receipts) > MAX_EVENTS_PER_SECOND:
+            raise RateLimitExceeded("Too many events in the last second; throttle the client")
 
-    def record_event(self, event: BehaviorEvent):
+    def _check_timestamp(self, client_ts):
+        elapsed = self.clock() - self.started_at
+        if client_ts > elapsed + CLIENT_TS_TOLERANCE_SECONDS:
+            raise ValueError("Client timestamp is further ahead of elapsed observation time than allowed")
+        if self.last_client_ts is not None and client_ts < self.last_client_ts - CLIENT_TS_TOLERANCE_SECONDS:
+            raise ValueError("Client timestamp rewinds further than the allowed reordering tolerance")
+        self.last_client_ts = max(self.last_client_ts or 0.0, client_ts)
+
+    def record_event(self, event):
         if event.event_id in self.event_ids:
-            previous = next(e for e in self.events if e["event_id"] == event.event_id)
-            if any(previous[k] != v for k, v in event.model_dump().items()):
+            previous = next(e for e in self.events if e["event"]["event_id"] == event.event_id)
+            if previous["event"] != event.model_dump():
                 raise ValueError("event_id was already used for different content")
             return
-        if self.phase != "running":
-            raise ValueError("Start the task before recording events; ended sessions are immutable")
-        now = self.clock()
-        if event.type.startswith("field_"):
-            if event.field_id not in self.fields:
-                raise ValueError("Unknown or missing field_id")
-            if event.type == "field_validation" and event.correct is None:
-                raise ValueError("field_validation requires correct: true or false")
-        if event.type == "field_focus":
-            if self.focused_field != event.field_id:
-                self._close_focus(now)
-                self.focused_field, self.field_started = event.field_id, now
-        elif event.type == "field_blur":
-            if self.focused_field == event.field_id:
-                self._close_focus(now)
-        elif event.type == "field_changed":
-            self.fields[event.field_id]["valid"] = False
-        elif event.type == "field_validation":
-            self.fields[event.field_id]["valid"] = event.correct
-            if not event.correct:
-                self.fields[event.field_id]["errors"] += 1
-                self.recent_errors.append(now)
-        elif event.type == "layout_changed":
-            self.tick()
-            if event.layout is None or event.reason is None:
-                raise ValueError("layout_changed requires layout and reason")
-            if event.layout == self.layout:
-                raise ValueError("Requested layout is already active")
-            if event.reason == "adaptation":
-                pending = self.pending_adaptation
-                if not pending or event.request_id != pending["request_id"] or event.layout != "guided":
-                    raise ValueError("No matching pending adaptation request")
-            self.layout_changes.append({
-                "at_seconds": now - self.started_at, "from": self.layout,
-                "to": event.layout, "reason": event.reason,
-                "request_id": event.request_id,
-            })
-            self.layout = event.layout
-            self.pending_adaptation = None
-            self.high_windows = 0
-        elif event.type in {"task_complete", "task_abandon"}:
-            if event.type == "task_complete" and not all(f["valid"] for f in self.fields.values()):
-                raise ValueError("All fields must have a current successful validation before completion")
-            self._close_focus(now)
-            self.ended_at = now
-            self.phase = "completed" if event.type == "task_complete" else "abandoned"
-            self.pending_adaptation = None
+        if self.phase != "observing":
+            raise ValueError("Start observation before recording events; ended sessions are immutable")
+        self._check_rate_limit()
+        self._check_timestamp(event.client_ts)
+        self.current_page = event.page_url
+        if event.type == "element_enter":
+            self.current_element = event.element_id
+        elif event.type == "element_leave" and self.current_element == event.element_id:
+            self.current_element = None
+        self.friction.ingest_event(event)
         self.event_ids.add(event.event_id)
-        self.events.append(event.model_dump() | {"at_seconds": now - self.started_at})
+        self.events.append({"event": event.model_dump(),
+                            "received_at_seconds": self.clock() - self.started_at})
         self.tick()
+
+    def record_gaze(self, observation):
+        if observation.observation_id in self.gaze_ids:
+            previous = next(g for g in self.gaze if g["observation"]["observation_id"] == observation.observation_id)
+            if previous["observation"] != observation.model_dump():
+                raise ValueError("observation_id was already used for different content")
+            return
+        if self.phase != "observing":
+            raise ValueError("Start observation before recording gaze; ended sessions are immutable")
+        self._check_rate_limit()
+        self._check_timestamp(observation.timestamp)
+        self.friction.ingest_gaze(observation)
+        self.gaze_ids.add(observation.observation_id)
+        self.gaze.append({"observation": observation.model_dump(),
+                          "received_at_seconds": self.clock() - self.started_at})
+        self.tick()
+
+    def events_export(self):
+        return [e["event"] | {"received_at_seconds": e["received_at_seconds"]} for e in self.events]
+
+    def gaze_export(self):
+        return [g["observation"] | {"received_at_seconds": g["received_at_seconds"]} for g in self.gaze]
 
     def tick(self):
         now = self.clock()
@@ -228,42 +248,22 @@ class Session:
             self.risk_score = None
             self.high_windows = 0
             self.windows.clear()
-        while self.recent_errors and now - self.recent_errors[0] > 15:
-            self.recent_errors.popleft()
-        if self.phase != "running":
-            return
-        hesitation = self.field_started is not None and now - self.field_started >= self.config.hesitation_seconds
-        behavioral = bool(self.recent_errors) or hesitation
-        eeg = (self.config.source != "manual" and self.model is not None
-               and self.quality == "usable"
-               and self.high_windows >= self.config.consecutive_windows)
-        policy = self.config.policy
-        should_request = behavioral and (policy == "behavior_only" or (policy == "combined" and eeg))
-        if self.pending_adaptation and not should_request:
-            self.pending_adaptation = None
-        if self.layout == "conventional" and not self.pending_adaptation and should_request:
-            self.pending_adaptation = {
-                "request_id": str(uuid4()), "layout": "guided", "policy": policy,
-                "reason": "errors_or_hesitation" if policy == "behavior_only" else "eeg_plus_errors_or_hesitation",
-                "source": self.config.source, "risk_score": self.risk_score,
-                "at_seconds": now - self.started_at,
-            }
+        if self.started_at is not None and self.phase != "ended":
+            closed = self.friction.tick(now - self.started_at)
+            if self.config.auto_suggest:
+                self.pending_auto_suggest.extend(r for r in closed if r["severity"] == "high")
 
     def view(self):
         self.tick()
         now = self.ended_at if self.ended_at is not None else self.clock()
-        fields = {name: dict(value) for name, value in self.fields.items()}
-        if self.focused_field:
-            fields[self.focused_field]["focused_seconds"] += now - self.field_started
         return {
             "session_id": self.id, "phase": self.phase, "config": self.config.model_dump(),
             "created_at": self.created_at, "started_at": self.started_at, "ended_at": self.ended_at,
-            "layout": self.layout, "adaptation_request": self.pending_adaptation,
+            "end_reason": self.end_reason,
+            "context": {"page_url": self.current_page, "element_id": self.current_element},
             "metrics": {
                 "elapsed_seconds": now - self.started_at if self.started_at is not None else 0,
-                "errors": sum(f["errors"] for f in fields.values()),
-                "completed": self.phase == "completed", "fields": fields,
-                "layout_changes": list(self.layout_changes),
+                "event_count": len(self.events), "gaze_count": len(self.gaze),
             },
             "eeg": {
                 "source": self.config.source, "quality": self.quality,
@@ -275,16 +275,19 @@ class Session:
             },
             "calibration": {
                 "ready": self.model is not None, "report": self.calibration_report,
-                "trial_count": len(self.trials), "fluent_trials": sum(t["label"] == 0 for t in self.trials),
-                "difficulty_proxy_trials": sum(t["label"] == 1 for t in self.trials),
+                "trial_count": len(self.trials),
+                "low_friction_trials": sum(t["label"] == "low_friction" for t in self.trials),
+                "high_friction_trials": sum(t["label"] == "high_friction" for t in self.trials),
+                "invalid_trials": sum(t["label"] == "invalid" for t in self.trials),
                 "active_trial_id": self.active_trial["id"] if self.active_trial else None,
                 "active_trial_usable_windows": len(self.active_trial["windows"]) if self.active_trial else 0,
             },
+            "friction": self.friction.summary(),
         }
 
 
-class ExperimentStore:
-    """Persist snapshots and event logs; do not pickle models or save raw EEG/typed data."""
+class SessionStore:
+    """Persist snapshots and event/gaze/friction logs; do not pickle models or save raw EEG."""
 
     def __init__(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -293,7 +296,10 @@ class ExperimentStore:
         self.db.commit()
 
     def save(self, session):
-        payload = session.view() | {"events": session.events, "calibration_trials": session.trials}
+        payload = session.view() | {
+            "events": session.events_export(), "gaze": session.gaze_export(),
+            "calibration_trials": session.trials, "friction_events": session.friction.closed,
+        }
         self.db.execute("INSERT OR REPLACE INTO sessions VALUES (?, ?)",
                         (session.id, json.dumps(payload, allow_nan=False)))
         self.db.commit()
@@ -304,9 +310,8 @@ class ExperimentStore:
             raise KeyError(session_id)
         data = json.loads(row[0])
         data["archived"] = True
-        if data["phase"] not in {"completed", "abandoned"}:
+        if data["phase"] != "ended":
             data["phase"] = "interrupted"
-        data["adaptation_request"] = None
         data["eeg"]["quality"] = "disconnected"
         data["eeg"]["risk_score"] = None
         data["eeg"]["features"] = None
@@ -316,7 +321,7 @@ class ExperimentStore:
 
 class Manager:
     def __init__(self, path, clock=time.time):
-        self.store = ExperimentStore(path)
+        self.store = SessionStore(path)
         self.clock = clock
         self.sessions = {}
         self.lock = threading.RLock()
@@ -327,7 +332,7 @@ class Manager:
             previous = self.sessions.get(config.calibration_session_id)
             if previous is None or previous.model is None:
                 raise ValueError("Calibration must exist in this server process; recalibrate after restart")
-            for field in ("participant_id", "source", "sample_rate", "channel_names", "task_key", "hesitation_seconds"):
+            for field in ("participant_id", "source", "sample_rate", "channel_names"):
                 if getattr(previous.config, field) != getattr(config, field):
                     raise ValueError(f"Calibration mismatch: {field}")
             session.model = previous.model
@@ -347,34 +352,13 @@ class Manager:
             return self.store.load(session_id)
         data = session.view()
         if export:
-            data |= {"events": session.events, "calibration_trials": session.trials}
+            data |= {"events": session.events_export(), "gaze": session.gaze_export(),
+                     "calibration_trials": session.trials, "friction_events": session.friction.closed}
         return data
 
-    def compare(self, ids):
-        if len(set(ids)) != len(ids):
-            raise ValueError("Choose distinct sessions")
-        sessions = [self.view(i) for i in ids]
-        reasons = []
-        if any(s["phase"] != "completed" for s in sessions):
-            reasons.append("All runs must be completed; incomplete times are not comparable.")
-        for field in ("participant_id", "task_key", "field_ids", "source"):
-            if any(s["config"][field] != sessions[0]["config"][field] for s in sessions):
-                reasons.append(f"Runs differ in {field}.")
-        if any(s["metrics"]["layout_changes"] for s in sessions):
-            reasons.append("A layout switched mid-run; use separate fixed-layout runs for comparison.")
-        if {s["config"]["initial_layout"] for s in sessions} != {"conventional", "guided"}:
-            reasons.append("Include both conventional and guided layouts.")
-        delta = None
-        if not reasons:
-            grouped = {layout: [s["metrics"] for s in sessions if s["config"]["initial_layout"] == layout]
-                       for layout in ("conventional", "guided")}
-            means = {layout: {key: float(np.mean([m[key] for m in metrics]))
-                              for key in ("elapsed_seconds", "errors")} for layout, metrics in grouped.items()}
-            delta = {
-                "mean_by_layout": means,
-                "seconds_saved": means["conventional"]["elapsed_seconds"] - means["guided"]["elapsed_seconds"],
-                "errors_reduced": means["conventional"]["errors"] - means["guided"]["errors"],
-            }
-        return {"eligible_descriptive_comparison": not reasons, "reasons": reasons,
-                "sessions": sessions, "difference": delta,
-                "interpretation": "Observed results only. Practice/order effects and task equivalence require experimental control; this does not isolate EEG's benefit."}
+    def friction_events(self, session_id):
+        session = self.sessions.get(session_id)
+        if session is None:
+            return self.store.load(session_id).get("friction_events", [])
+        session.tick()
+        return session.friction.closed

@@ -1,189 +1,228 @@
-# Frontend handoff
+# Frontend integration
 
-The teammate owns the booking UI. Keep both layouts' fields, task details and
-validation identical; preserve answers when switching. No frontend framework is required.
+Your teammate owns the website, the eye-tracking implementation, webcam access, gaze
+calculation and DOM-to-element mapping. This backend never inspects or controls the DOM;
+it only receives already-computed gaze observations, browser behaviour events and EEG
+chunks, attributes them to a page/element, and produces **friction events** describing a
+likely difficulty location supported by experimental/behavioural evidence — not a
+validated measurement of confusion.
 
 Copy `examples/frictionfix-client.ts` into your frontend if useful. It has no npm
-dependencies and includes TypeScript types. Backend address: `http://127.0.0.1:8000`.
+dependencies and includes TypeScript types matching every payload in this document.
+Backend address: `http://127.0.0.1:8000`.
 
-## First connection: no EEG required
+## 1. Create one browsing session
 
 ```ts
 import { FrictionFixClient } from "./frictionfix-client";
 const api = new FrictionFixClient();
 const session = await api.create({
-  participant_id: "test-participant-01", // pseudonym, not their name
-  task_key: "booking-v1",
-  field_ids: ["full_name", "email", "arrival_date", "guests"], // your actual field IDs
+  participant_id: "test-participant-01",   // pseudonym, not their name
+  website_url: "https://example-shop.test",
+  website_name: "Example Shop",             // optional
+  observation_label: "checkout flow, round 1", // optional
   source: "manual",
-  initial_layout: "conventional",
-  policy: "behavior_only", // visibly label this as behaviour-only, not EEG
+  policy: "behavior_only",                  // visibly label this as behaviour-only, not EEG
 });
 const id = session.session_id;
-await api.start(id); // start button: not component mounting
-const unsubscribe = api.subscribe(id, state => {
-  // Update metrics, signal status and researcher panel from state.
-  // Handle state.adaptation_request once per request_id; see below.
-  console.log(state);
-}, () => { /* show disconnected state; poll api.state(id) if needed */ });
-
-await api.event(id, { type: "field_focus", field_id: "email" });
-await api.event(id, { type: "field_changed", field_id: "email" });
-await api.event(id, { type: "field_validation", field_id: "email", correct: false });
 ```
 
-Call `unsubscribe()` when unmounting. Create one session per run; do not create twice
-because React StrictMode repeats effects. Keep a reference to session ID and pending
-acknowledgments. Do not start/end a timed task automatically from a lifecycle effect.
+**No task, form or "correct answer" is required or supported.** The participant simply
+browses. Create one session per browsing period; do not create twice because React
+StrictMode repeats effects.
 
-## Behaviour events
-
-`POST /sessions/{id}/events` requires `event_id` (unique string) and `type`.
-The adapter assigns a UUID and serializes event requests. Await validation requests
-before completing the task. Reuse the same `event_id` when retrying after a network
-failure; reusing it with different content is rejected.
-
-| type | Additional fields | Send when |
-|---|---|---|
-| `field_focus` | `field_id` | Input gains focus |
-| `field_blur` | `field_id` | Input loses focus |
-| `field_changed` | `field_id` | A previously validated value is edited; invalidates prior success |
-| `field_validation` | `field_id`, `correct` | User submits/checks a field against the task's expected value |
-| `layout_changed` | `layout`, `reason`, optionally `request_id` | UI has actually changed layout |
-| `task_complete` | none | All fields currently validate successfully |
-| `task_abandon` | none | User explicitly stops without completing |
-
-**Errors count incorrect validation attempts, not keystrokes.** Do not emit incorrect
-validations on every keypress. Before final submission, validate every field against
-the task and send its current correctness. The backend refuses completion if any
-field lacks a current successful validation.
-
-The backend records receipt times. Field time is accumulated focused time, not
-eye-tracked dwell time. Total duration starts at `/start`, independent of EEG calibration.
-
-## Apply an adaptation
-
-Example state fragment:
-
-```json
-{
-  "layout": "conventional",
-  "adaptation_request": {
-    "request_id": "a-generated-uuid",
-    "layout": "guided",
-    "policy": "combined",
-    "reason": "eeg_plus_errors_or_hesitation",
-    "source": "live",
-    "risk_score": 0.78,
-    "at_seconds": 18.4
-  }
-}
-```
-
-This fragment illustrates the schema; it is **not a measured result**.
-
-1. Read `adaptation_request`, preserve current answers and render the guided layout.
-2. After it is rendered, acknowledge the actual change:
+## 2. Start and end observation
 
 ```ts
-await api.event(id, {
-  type: "layout_changed",
-  layout: "guided",
-  reason: "adaptation",
-  request_id: request.request_id,
-}, request.request_id); // stable event ID makes retries idempotent
+await api.start(id);   // begin logging; anchors client timestamps (see §11)
+// ... participant browses freely ...
+await api.end(id, "completed");  // or "abandoned" / "navigated_away"
 ```
 
-3. Guard against duplicate requests from the twice-per-second state feed. Track an
-   in-flight/handled request ID. If the backend rejects an expired request, report the
-   integration error and record the actual UI change as `reason: "manual"` if it
-   already happened. Do not claim an acknowledged EEG change that wasn't recorded.
-4. A researcher “switch layout” button uses `reason: "manual"` and no request ID.
+`end()` is safe to call more than once (e.g. from both a "done" button and a page-unload
+handler) — ending an already-ended session is a no-op, not an error. Do not start/end a
+session automatically from a component-mount lifecycle effect; tie it to an explicit
+participant/researcher action ("begin browsing" / "finish").
 
-Do not render the layout solely from `state.layout` while acknowledging: the backend
-retains the old layout until the frontend confirms the change. The acknowledgement
-exists to distinguish an algorithm request from an actual interface change.
+## 3. Stable element IDs
 
-## Required researcher panel
+Assign a short, stable `element_id` to every meaningful element, e.g.
+`navigation-products`, `pricing-comparison-table`, `checkout-button`, `account-menu`,
+`shipping-information`. The frontend decides and assigns these; the backend never
+inspects the DOM to derive them. Optionally list the ones you expect up front in
+`known_element_ids` at session creation — this is informational only (e.g. for pre-built
+heatmap axes) and is never enforced against events.
 
-Show source (`live`, `replay`, `manual`), EEG quality, calibration status, real errors,
-time, and adaptation reason. When `risk_score` is null show “unavailable,” not zero.
-Label it “experimental EEG risk score”; do not convert it to “78% confused.”
-If a socket disconnects, the UI must display disconnected rather than freezing a
-previous “usable” label. Reconnect or poll `GET /sessions/{id}` every 500 ms.
+## 4. Browser behaviour events
 
-## Live/replay session configuration
+`POST /sessions/{id}/events`. Every event needs `event_id` (unique string, for retries),
+`type`, `page_url` and `client_ts` (see §11). Each type accepts **only** its own extra
+fields — the backend rejects unknown/missing fields for that type (HTTP 422).
+
+| type | extra required | extra optional | send when |
+|---|---|---|---|
+| `element_enter` | `element_id` | `x`, `y` | pointer/focus enters a tracked element |
+| `element_leave` | `element_id`, `duration_ms` | | it leaves |
+| `element_click` | `element_id`, `x`, `y` | | a single click |
+| `repeated_click` | `element_id`, `click_count`, `duration_ms` | | you've detected ≥2 clicks in a short window (non-frustrated) |
+| `rage_click` | `element_id`, `click_count`, `duration_ms` | `x`, `y` | you've detected a frustrated click burst |
+| `scroll` | `direction` (`up`\|`down`) | `element_id`, `scroll_y` | a scroll event |
+| `scroll_reversal` | `reversal_count` | `element_id` | scroll direction flipped repeatedly |
+| `backtrack` | `previous_page_url` | `element_id` | back-navigation / re-visiting prior content |
+| `input_error` | `element_id` | `metadata` | a form/input validation failure — **not** every keystroke |
+| `navigation` | | `previous_page_url` | page changed (`page_url` = destination) |
+| `inactivity` | `duration_ms` | `element_id` | you've detected a hesitation/idle period |
+| `observation_end` | | `reason`, `element_id` | best-effort signal (e.g. `beforeunload`) — logged only; call `api.end()` to actually end the session |
+
+All types also accept `metadata`: up to 10 short key/value pairs (strings ≤200 chars) for
+small safe context — never raw typed content, HTML, or free-text keystrokes.
+
+Classification (is this a rage click vs. a normal click, a reversal vs. normal scrolling)
+is the frontend's job — the backend only decides whether a reported event crosses a
+configurable *evidence* threshold (§12), not whether it happened.
+
+The backend rejects: an unknown `event_id` reused with different content (network retries
+must resend the exact same payload), events before `start()`/after `end()`, timestamps
+that rewind or run far ahead of elapsed time (§11), and bursts over roughly 40 events/sec
+per session (HTTP 429 — batch/throttle high-frequency signals like `scroll` client-side).
+
+## 5. Processed gaze observations (your teammate's eye-tracking pipeline)
+
+`POST /sessions/{id}/gaze`. This backend does not implement eye tracking — only
+validates, timestamps and stores what your pipeline already computed:
 
 ```json
 {
-  "participant_id": "judge-01",
-  "task_key": "booking-v1",
-  "field_ids": ["full_name", "email", "arrival_date", "guests"],
-  "source": "live",
-  "policy": "combined",
-  "sample_rate": 512,
-  "channel_names": ["F3", "Fz", "F4", "FC1", "FC2", "C3", "Cz", "C4", "P3", "Pz", "P4", "Oz"]
+  "observation_id": "gaze-104",
+  "element_id": "pricing-comparison-table",
+  "page_url": "/pricing",
+  "timestamp": 125.72,
+  "x": 742,
+  "y": 418,
+  "dwell_ms": 3200,
+  "confidence": 0.91
 }
 ```
 
-These channels exist in the supplied recording; confirm actual hardware channels.
-Use `source: "replay"` for file playback. The frontend doesn't need to post raw EEG
-when using the Python bridge. `source` is configured/tagged input, not hardware attestation.
+`timestamp` uses the same seconds-since-`start()` convention as `client_ts` (§11).
+`element_id`/`x`/`y`/`viewport_width`/`viewport_height` are optional. Observations below
+the session's confidence/dwell thresholds are still stored (useful for a full gaze
+heatmap) but contribute no friction evidence. If gaze timestamps are missing or clearly
+invalid, the backend will not claim alignment with EEG or behaviour evidence for that
+observation.
 
-## EEG input contract (vendor bridge only)
+## 6. Subscribing to live state
 
-`POST /sessions/{id}/eeg`:
+```ts
+const unsubscribe = api.subscribe(id, state => {
+  // state.eeg.quality, state.friction.total/open_episodes/by_severity, state.context, ...
+}, () => { /* show "disconnected"; poll api.state(id) as a fallback */ });
+```
+
+WebSocket at `/sessions/{id}/ws`, pushed twice per second. Call `unsubscribe()` on
+unmount. If the socket errors or closes, show a disconnected state — never keep showing a
+stale "usable"/"connected" label.
+
+## 7. Retrieving friction events
+
+```ts
+const { friction_events } = await api.frictionEvents(id);
+```
 
 ```json
 {
-  "sequence": 0,
-  "source": "live",
-  "units": "uV",
-  "start_time": 100.0,
-  "samples": [[2.1, 3.2], [2.4, 3.1]]
+  "friction_event_id": "generated-uuid",
+  "page_url": "/pricing",
+  "element_id": "pricing-comparison-table",
+  "friction_score": 0.82,
+  "severity": "high",
+  "evidence": ["elevated_eeg_risk", "long_gaze_dwell", "repeated_clicks"],
+  "started_at": 12.4,
+  "ended_at": 18.7,
+  "source_mode": "combined",
+  "suggestion": null
 }
 ```
 
-This two-channel fragment is for a session configured with exactly two channels;
-normal 12-channel samples must each contain 12 values. Rows are samples, columns
-are the exact session channel order. `start_time` is the first sample's source-clock
-timestamp in seconds. `sequence` must strictly increase; timestamps must not overlap
-or rewind. Gaps reset signal evidence. Send <= 2 seconds per request, ideally 0.5 seconds.
-Do not upload an entire recording as one request or stream old samples as live.
+`GET /sessions/{id}/export` includes the same list plus every raw event/gaze observation
+and EEG quality/evidence summary (never raw EEG samples) — enough to build a page/element
+friction heatmap client-side. A friction event only appears once its evidence clears the
+session's `min_friction_score` (default 0.3); weaker signals are recorded in the raw
+event/gaze log but never surfaced as a friction claim. **Display `friction_score` and
+`severity` as "likely friction, supported by evidence" — never as a measured or validated
+confusion percentage.**
 
-## Calibration endpoints
+## 8. Requesting and displaying a Gemini suggestion
 
-All are `POST`. Empty operations can send `{}`.
+```ts
+const suggestion = await api.requestSuggestion(id, frictionEventId, {
+  element_type: "comparison table",             // optional, short
+  element_description: "3-column pricing grid", // optional, short
+});
+```
 
-| Path suffix after `/sessions/{id}` | Body | Effect |
-|---|---|---|
-| `/calibration/start` | `{}` | Enter calibration before the timed run |
-| `/calibration/trials/start` | `{}` | Begin an independent form trial; clear prior EEG windows |
-| `/calibration/trials/end` | `{"success": true, "errors": 0}` | Label features preceding the actual outcome |
-| `/calibration/trials/cancel` | `{}` | Discard a bad-signal/aborted trial |
-| `/calibration/fit` | `{}` | Fit after at least four trials of each outcome class |
-| `/start` | `{}` | Begin the measured booking task; clear calibration signal history |
+```json
+{
+  "problem": "Users appear to hesitate while comparing the pricing plans.",
+  "suggestion": "Reduce the number of columns and visually highlight the differences.",
+  "priority": "high",
+  "rationale": "The element was associated with prolonged attention, repeated clicks and elevated experimental EEG risk."
+}
+```
 
-Use the corresponding adapter methods. Read the README's calibration instructions:
-the minimum is **trials**, not eight adjacent EEG windows. Replay-labelled outcomes
-only test the code path and must not be interpreted as participant calibration.
+This calls Gemini (via Vertex AI) once per friction event and caches the result — calling
+it again for the same `friction_event_id` returns the cached suggestion without another
+API call. If `SessionConfig.auto_suggest` was `true`, a high-severity friction event may
+already have `suggestion` populated when you fetch it from §7. If Vertex AI is
+unavailable (no credentials, quota, network, or malformed response), the endpoint returns
+HTTP 503 with a clear reason — handle this as "suggestion unavailable," never fabricate
+one client-side and present it as Gemini's.
 
-## Results
+## 9. Behaviour-only mode
 
-- `GET /sessions/{id}` or WebSocket: current metrics/state.
-- `GET /sessions/{id}/export`: downloadable JSON, including event log and calibration
-  features/outcomes. The adapter exposes `exportUrl(id)`.
-- `POST /compare` with `{"session_ids": ["first-uuid", "second-uuid"]}`: comparable
-  fixed-layout results, or explicit reasons a difference cannot be calculated.
+Set `policy: "behavior_only"` (or simply never post to `/eeg`) to run without any EEG
+requirement. Friction events are still produced from browser events and gaze alone;
+`elevated_eeg_risk` is never included as evidence. Set `policy: "observe"` to disable
+friction scoring entirely and just log raw data (useful for a pure baseline recording).
 
-For fixed-layout comparison, use `policy: "observe"` and separate conventional/guided
-sessions with equivalent tasks. Adaptive/mixed runs remain exportable but are excluded
-from the simple layout difference. Do not claim that a faster second attempt proves
-EEG helped. The provided model's incremental value needs a separate controlled test.
+## 10. Disconnected / missing / poor-quality signals
+
+Read `state.eeg.quality`: `disconnected` (no session/hardware), `waiting` (no window yet),
+`usable`, `poor` (failed artifact checks — shown, but excluded from scoring), or `stale`
+(no window in the last 4s — treat as temporarily unavailable). Show `risk_score` as
+"unavailable," not zero, when `null`. A restarted/reloaded session is always archived
+with `eeg.quality: "disconnected"` and `calibration.ready: false` — never presented as a
+resumed live session.
+
+## 11. Client timestamps
+
+`client_ts` (events) and `timestamp` (gaze) are **seconds since this session's `start()`
+call resolved, per the frontend's own clock** (`performance.now()`), not epoch time and
+not the backend's clock. This sidesteps wall-clock synchronization entirely. The adapter
+does this for you (`FrictionFixClient.start()` anchors it; `.event()`/`.gaze()` compute
+it). The backend rejects a timestamp that rewinds more than ~5s behind the latest
+accepted one, or runs more than ~5s ahead of its own elapsed-time estimate — send events
+close to when they happen, don't batch-replay a long queue after a network outage.
+EEG-derived evidence uses the *backend's* receipt-time elapsed clock (there is no hard
+link between the EEG source clock and the browser clock); this is an approximation the
+backend discloses rather than presenting as exact cross-signal alignment.
+
+## 12. Shared configuration
+
+Both sides must agree on, at session-creation time: `sample_rate` and `channel_names`
+(only relevant if you're driving the Python EEG bridge — the browser never posts EEG
+directly, see README.md), and whichever friction thresholds you want non-default
+(`long_gaze_dwell_ms`, `min_gaze_confidence`, `rage_click_min_count`,
+`repeated_click_min_count`, `scroll_reversal_min_count`, `inactivity_min_ms`,
+`episode_merge_window_seconds`, `min_friction_score`, `risk_threshold`,
+`consecutive_windows`). All have sane defaults (see `frictionfix/schemas.py`); only
+override what your demo needs. The friction *scoring weights* themselves are fixed and
+documented in `frictionfix/friction.py`, not configurable, so a score always means the
+same thing across sessions.
 
 ## Scope for your Claude prompt
 
-Implement the booking UI and researcher/results panels using this contract. Reuse
-the TypeScript adapter. Keep `backend/` unchanged unless coordinating an API fix.
-Do not generate EEG scores, success metrics or improvement percentages. Support
-the manual integration path first, then calibration and combined EEG input.
+Implement the website, gaze pipeline and researcher/results panels using this contract.
+Reuse the TypeScript adapter. Keep `backend/` unchanged unless coordinating an API fix.
+Do not generate friction scores or suggestions client-side, and do not claim a percentage
+"confused" or a validated diagnosis anywhere in the UI.

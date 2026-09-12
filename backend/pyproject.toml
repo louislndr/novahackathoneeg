@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "frictionfix-backend"
 version = "0.1.0"
-description = "Local EEG-assisted usability experiment backend"
+description = "Local EEG/gaze/behaviour-assisted website friction detection backend"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115,<1", "uvicorn[standard]>=0.30,<1", "numpy>=2.1,<3",
@@ -14,6 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 eeg = ["mne>=1.9,<2", "antio>=0.5,<1", "pylsl>=1.17,<2"]
+gemini = ["google-genai>=1.0,<2"]
 test = ["pytest>=8,<10"]
 
 [project.scripts]

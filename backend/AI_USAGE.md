@@ -9,6 +9,15 @@ No live ANT cap was available during this implementation. Synthetic EEG used in 
 is test input, not a participant measurement. The supplied-data result is calculated
 from recordings and is not an estimate of website-confusion accuracy.
 
+The backend was subsequently generalized from a single booking-form usability experiment
+into the free-browsing FrictionFix contract described in this repository (session model,
+strict browser-event/gaze schemas, the friction-scoring engine, and the Vertex AI Gemini
+suggestion service) using Claude Code. The EEG signal-processing and calibration-fitting
+algorithms were carried over unchanged from the original implementation; only what
+labels/triggers feed them changed. The team should be ready to explain this refactor's
+design choices (the friction-episode/evidence model, the fixed evidence weights, and the
+Vertex AI error-handling/caching behaviour) alongside the original signal-processing work.
+
 Before submission, the team should replace the placeholders in Python headers with
 its actual team number and member names, review the code, correct this disclosure
 to reflect subsequent human/AI contributions, and be ready to explain:
@@ -17,15 +26,21 @@ to reflect subsequent human/AI contributions, and be ready to explain:
 - What sample rate, channel order, EOG and unconnected mastoid channels mean.
 - How non-overlapping windows, quality checks, bandpass filtering and Welch power work.
 - What each of the six features measures, and why none directly measures confusion.
-- How form outcomes supply labels and why windows after submission must not be used.
+- How researcher/participant-labelled calibration intervals (`low_friction`/
+  `high_friction`/`invalid`) supply targets, and why windows after the label ends must
+  not be used.
 - Why independent trials and held-out sessions matter for leakage and validation.
 - What scaling, logistic regression, regularization and class balancing do.
 - Why majority-baseline and balanced accuracy matter with unequal class counts.
-- Why EEG alone does not request a switch under the combined policy.
-- How the frontend acknowledges a real change, and how errors/times are measured.
+- How the friction score is a transparent, fixed-weight sum of which evidence types
+  crossed a configurable threshold — not a validated probability of confusion — and why
+  EEG evidence alone can still be enough to clear the default reporting threshold.
+- Why behaviour/gaze timestamps (frontend-relative) and EEG timestamps (backend-relative)
+  are different clocks that are only approximately aligned, and why that's disclosed
+  rather than hidden.
 - Why repeated attempts, task difficulty, movement and order can confound improvement.
 - What is implemented versus still unverified: vendor hardware, fNIRS, actual website
-  task calibration, EEG's incremental benefit and commercial usefulness.
+  calibration, EEG/gaze's incremental benefit, a real Vertex AI call, and commercial usefulness.
 
 Primary implementation references:
 
