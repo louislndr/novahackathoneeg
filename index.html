@@ -7,6 +7,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
     <title>FrictionFix</title>
+    <!-- face_mesh.js must load first — it sets window.FaceMesh which webgazer.js needs.
+         The webgazer dist bundle's require('@mediapipe/face_mesh') returns {} (no exports),
+         so webgazer.js is patched to fall back to self.FaceMesh. -->
+    <script src="/mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="/webgazer.js" defer></script>
   </head>
   <body>
     <div id="root"></div>

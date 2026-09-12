@@ -139,9 +139,18 @@ const HEAT_RADIUS = 90
 const HEAT_DECAY = 0.018
 const MAX_JUMP_PX = 400
 
-// Pre-fetch WebGazer WASM as soon as this module loads so the first toggle is fast.
-// The browser module cache means the second import('webgazer') in the effect is instant.
-import('webgazer').catch(() => null)
+// Wait for window.webgazer to be set by the <script defer> tag in index.html.
+// The script tag bypasses Vite bundling which breaks MediaPipe's emscripten FaceMesh globals.
+function getWebGazer() {
+  return new Promise((resolve, reject) => {
+    if (window.webgazer) return resolve(window.webgazer)
+    let attempts = 0
+    const id = setInterval(() => {
+      if (window.webgazer) { clearInterval(id); resolve(window.webgazer) }
+      else if (++attempts > 80) { clearInterval(id); reject(new Error('WebGazer script did not load')) }
+    }, 100)
+  })
+}
 
 // Module-level singleton — WebGazer must never be begin()'d twice.
 let _wg = null
@@ -160,6 +169,7 @@ export default function GazeTracker({
   const [inlinesuggestion, setInlineSuggestion] = useState(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [eegLoad, setEegLoad] = useState(0)
+  const [retryCount, setRetryCount] = useState(0)
 
   // Gaze tracked in a ref — zero React re-renders at 30fps
   const gazeSmoothRef = useRef(null)
@@ -429,8 +439,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
     wgStatusRef.current = 'calibrating'
     setWgStatus('calibrating')
 
-    import('webgazer').then(module => {
-      const wg = module.default ?? module
+    getWebGazer().then(async wg => {
       _wg = wg
       wgRef.current = wg
       // Cap resolution and framerate — face mesh is the main thread bottleneck
@@ -440,33 +449,26 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       wg.clearData()
       wg.saveDataAcrossSessions(false)
       wg.setRegression('ridge')
+      // Call each method separately — v3.5.3 may not return `this` from these,
+      // so chaining them would silently drop the begin() call
       wg.setGazeListener(gazeListener)
-        .showVideo(false)
-        .showFaceOverlay(false)
-        .showPredictionPoints(false)
-        .begin()
-        .then(() => {
-          _wgReady = true
-          _wgInitializing = false
-          _pendingAttach.forEach(fn => fn())
-          _pendingAttach.clear()
-        })
-        .catch(err => {
-          _wgInitializing = false
-          wgStatusRef.current = 'error'
-          setWgStatus('error')
-          setWgError(err?.message || 'Camera access denied or unavailable')
-          initRef.current = false
-          _wg = null
-        })
+      try { wg.showVideo(false) } catch {}
+      try { wg.showFaceOverlay(false) } catch {}
+      try { wg.showPredictionPoints(false) } catch {}
+      await Promise.resolve(wg.begin())
+      _wgReady = true
+      _wgInitializing = false
+      _pendingAttach.forEach(fn => fn())
+      _pendingAttach.clear()
     }).catch(err => {
       _wgInitializing = false
+      _wg = null
+      initRef.current = false
       wgStatusRef.current = 'error'
       setWgStatus('error')
-      setWgError('Failed to load WebGazer: ' + (err?.message || err))
-      initRef.current = false
+      setWgError(err?.message || 'Camera access denied or unavailable')
     })
-  }, [enabled, gazeListener])
+  }, [enabled, gazeListener, retryCount]) // retryCount forces re-run on retry
 
   useEffect(() => {
     return () => {
@@ -551,6 +553,20 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
           >
             <AlertCircle size={11} className="text-red-400" />
             <span className="text-xs text-red-400/80">{wgError || 'Eye tracking failed'}</span>
+            <button
+              onClick={() => {
+                initRef.current = false
+                _wgReady = false
+                _wgInitializing = false
+                _wg = null
+                setWgError(null)
+                setWgStatus('calibrating')
+                setRetryCount(c => c + 1)
+              }}
+              className="ml-1 text-[10px] text-white/40 hover:text-white/70 underline underline-offset-2"
+            >
+              retry
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
