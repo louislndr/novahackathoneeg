@@ -279,9 +279,13 @@ export default function StudyScreen({
   elapsed,
   startSession, stopSession,
 }) {
-  const [urlInput, setUrlInput] = useState('')
-  const [iframeUrl, setIframeUrl] = useState('')
-  const [loading, setLoading] = useState(false)
+  // Initialize from targetUrl so navigating here with a URL already chosen (e.g. from
+  // the report's "Deploy improved version" action) loads it immediately, with no
+  // second click needed. This screen fully remounts on each navigation to 'study', so
+  // this only ever runs once per visit.
+  const [urlInput, setUrlInput] = useState(targetUrl || '')
+  const [iframeUrl, setIframeUrl] = useState(targetUrl || '')
+  const [loading, setLoading] = useState(!!targetUrl)
   const [iframeKey, setIframeKey] = useState(0)
   const iframeRef = useRef(null)
 

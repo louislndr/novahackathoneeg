@@ -1,6 +1,9 @@
-import { motion } from 'framer-motion'
-import { Download, ArrowLeft, Sparkles, Brain, Globe, Clock, Info } from 'lucide-react'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Download, Sparkles, Brain, Globe, Clock, Info, Rocket, Loader2, CheckCircle2 } from 'lucide-react'
 import { formatMs } from '../App'
+
+const IMPROVED_SITE_URL = window.location.origin + '/demo-sites/coastal-clean/index.html'
 
 // Fixed findings for the Coastal Home Services demo site. A live demo has too little
 // time for a participant to fixate on every planted element for 2s+, so the report
@@ -61,14 +64,27 @@ function download(suggestions, targetUrl) {
   URL.revokeObjectURL(url)
 }
 
-export default function ResultsScreen({ targetUrl, setScreen, resetSession }) {
+export default function ResultsScreen({ targetUrl, setScreen, setTargetUrl, resetSession }) {
   // Fixed, deterministic findings for this demo site -- see FIXED_REPORT above.
   const suggestions = FIXED_REPORT
+  const [deployState, setDeployState] = useState('idle') // 'idle' | 'deploying' | 'done'
 
   const container = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } }
   const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.22 } } }
 
   const highLoadCount = suggestions.filter(s => s.eegLoad >= 70).length
+
+  function deployImprovedSite() {
+    if (deployState !== 'idle') return
+    setDeployState('deploying')
+    setTimeout(() => {
+      setDeployState('done')
+      setTimeout(() => {
+        setTargetUrl(IMPROVED_SITE_URL)
+        setScreen('study')
+      }, 500)
+    }, 1200)
+  }
 
   return (
     <div className="h-full overflow-auto p-5">
@@ -164,6 +180,49 @@ export default function ResultsScreen({ targetUrl, setScreen, resetSession }) {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </motion.div>
+
+        {/* Suggested improvement */}
+        <motion.div variants={item} className="panel p-5 border border-mint-500/20">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Sparkles size={12} className="text-mint-500" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-mint-500">Suggested improvement</span>
+              </div>
+              <p className="text-white/70 text-sm font-medium mb-1">
+                An improved version of this page is ready — the {suggestions.length} friction points above are addressed:
+                no popup, no fake warning banner, no unsolicited chat bait, and the pricing, rating and response-time
+                claims no longer contradict themselves.
+              </p>
+              <p className="text-white/25 text-xs">Same site, same layout — just without the parts that caused friction.</p>
+            </div>
+            <motion.button
+              onClick={deployImprovedSite}
+              disabled={deployState !== 'idle'}
+              whileHover={deployState === 'idle' ? { scale: 1.02 } : {}}
+              whileTap={deployState === 'idle' ? { scale: 0.97 } : {}}
+              className="btn-mint flex-shrink-0"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {deployState === 'idle' && (
+                  <motion.span key="idle" className="flex items-center gap-1.5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <Rocket size={13} /> Deploy improved version
+                  </motion.span>
+                )}
+                {deployState === 'deploying' && (
+                  <motion.span key="deploying" className="flex items-center gap-1.5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <Loader2 size={13} className="animate-spin" /> Deploying…
+                  </motion.span>
+                )}
+                {deployState === 'done' && (
+                  <motion.span key="done" className="flex items-center gap-1.5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <CheckCircle2 size={13} /> Live
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.button>
           </div>
         </motion.div>
 
