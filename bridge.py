@@ -141,7 +141,7 @@ def prepare_discovery(explicit: list[str] | None) -> None:
 
 async def handle_client(websocket):
     # Import after LSLLIB_CONFIGURATION_FILE is set — pylsl reads config on first import
-    from pylsl import StreamInlet, resolve_byprop, LostError
+    from pylsl import StreamInlet, resolve_byprop
 
     print("Browser connected — resolving LSL EEG stream…")
     streams = resolve_byprop('type', 'EEG', timeout=20)
@@ -189,7 +189,7 @@ async def handle_client(websocket):
                 "eegLoad":  load,
                 "channels": buf[-1].tolist(),
             }))
-    except (websockets.exceptions.ConnectionClosed, LostError):
+    except websockets.exceptions.ConnectionClosed:
         print("Client disconnected")
     except Exception as e:
         print(f"Bridge error: {e}")
