@@ -179,6 +179,12 @@ async def handle_client(websocket):
     # Import after LSLLIB_CONFIGURATION_FILE is set — pylsl reads config on first import
     from pylsl import StreamInlet, resolve_byprop
 
+    # Tell the browser we're searching — WebSocket open ≠ stream found
+    try:
+        await websocket.send(json.dumps({"status": "searching"}))
+    except Exception:
+        return
+
     print("Browser connected — resolving LSL EEG stream…")
     streams = resolve_byprop('type', 'EEG', timeout=20)
     if not streams:
@@ -186,7 +192,7 @@ async def handle_client(websocket):
                "Make sure eego is recording and LSL is started (Extras → LSL → Start).")
         print(msg)
         try:
-            await websocket.send(json.dumps({"error": msg}))
+            await websocket.send(json.dumps({"status": "error", "error": msg}))
         except Exception:
             pass
         await websocket.close()
@@ -202,7 +208,7 @@ async def handle_client(websocket):
     print(f"Stream: {info.name()} · {n_ch} ch · {srate} Hz · host: {info.hostname()}")
     try:
         await websocket.send(json.dumps({
-            "status":   "stream_found",
+            "status":   "connected",
             "name":     info.name(),
             "channels": n_ch,
             "srate":    srate,

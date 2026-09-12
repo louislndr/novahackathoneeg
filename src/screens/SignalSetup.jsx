@@ -21,19 +21,25 @@ function Toggle({ value, onChange }) {
 }
 
 function DeviceCard({ title, subtitle, status, channels }) {
-  const connected = status === 'connected'
+  const connected  = status === 'connected'
+  const searching  = status === 'searching'
   const connecting = status === 'connecting'
-  const error = status === 'error'
+  const error      = status === 'error'
+  const busy       = searching || connecting
 
   const badgeClass = connected
     ? 'bg-mint-500/10 text-mint-500 border-mint-500/25'
     : error
     ? 'bg-red-400/10 text-red-400 border-red-400/20'
-    : connecting
+    : busy
     ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
     : 'bg-white/[0.03] text-white/25 border-white/[0.06]'
 
-  const badgeLabel = connected ? 'Connected' : error ? 'Error' : connecting ? 'Connecting…' : 'Disconnected'
+  const badgeLabel = connected ? 'Connected'
+    : error      ? 'Error'
+    : searching  ? 'Searching…'
+    : connecting ? 'Connecting…'
+    : 'Disconnected'
 
   return (
     <div className="flex items-center justify-between">
@@ -51,7 +57,7 @@ function DeviceCard({ title, subtitle, status, channels }) {
         </div>
       </div>
       <span className={`text-xs px-2.5 py-1 rounded-full font-medium border flex items-center gap-1.5 ${badgeClass}`}>
-        {connecting && <Loader2 size={9} className="animate-spin" />}
+        {busy && <Loader2 size={9} className="animate-spin" />}
         {badgeLabel}
       </span>
     </div>

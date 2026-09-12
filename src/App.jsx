@@ -65,12 +65,15 @@ export default function App() {
     setEegWsStatus('connecting')
     const ws = new WebSocket('ws://localhost:4514')
     eegWsRef.current = ws
-    ws.onopen  = () => setEegWsStatus('connected')
+    ws.onopen  = () => setEegWsStatus('searching')
     ws.onerror = () => setEegWsStatus('error')
     ws.onclose = () => { setEegWsStatus(s => s === 'connected' ? 'error' : s); setLiveEegLoad(null) }
     ws.onmessage = (e) => {
       try {
         const d = JSON.parse(e.data)
+        if (d.status === 'searching') setEegWsStatus('searching')
+        else if (d.status === 'connected') setEegWsStatus('connected')
+        else if (d.status === 'error') setEegWsStatus('error')
         if (typeof d.eegLoad === 'number') setLiveEegLoad(d.eegLoad)
       } catch {}
     }
