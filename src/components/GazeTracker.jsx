@@ -531,7 +531,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       <canvas
         ref={canvasRef}
         className="pointer-events-none fixed inset-0 z-50"
-        style={{ opacity: wgStatus === 'tracking' ? 0.78 : 0 }}
+        style={{ opacity: wgStatus === 'tracking' ? 0.92 : 0 }}
       />
 
       {/* Analyzing pulse — position driven by motionValues, no React re-renders */}
