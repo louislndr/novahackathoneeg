@@ -45,7 +45,7 @@ function CalibrationOverlay({ onDone }) {
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] bg-[#09080f]/92 backdrop-blur-sm"
     >
-      <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none select-none" style={{ top: 32 }}>
+      <div className="absolute text-center pointer-events-none select-none" style={{ top: '30%', left: '50%', transform: 'translateX(-50%)' }}>
         <h2 className="text-lg font-semibold mb-1">Eye Tracking Calibration</h2>
         <p className="text-white/40 text-sm">
           Look directly at each dot, then click it <span className="text-white/70">3 times</span>
@@ -166,8 +166,13 @@ export default function GazeTracker({
   const lastHeatTimeRef = useRef(0)
   const gazeSmoothRef = useRef(null)
 
-  // Draw one heat sample onto the canvas
+  // Draw one heat sample onto the canvas — clipped to the iframe area only
   const drawHeat = useCallback((x, y) => {
+    if (iframeRef?.current) {
+      const r = iframeRef.current.getBoundingClientRect()
+      if (x < r.left || x > r.right || y < r.top || y > r.bottom) return
+    }
+
     const now = Date.now()
     if (now - lastHeatTimeRef.current < HEAT_THROTTLE_MS) return
     lastHeatTimeRef.current = now
@@ -217,33 +222,27 @@ export default function GazeTracker({
     return () => clearInterval(id)
   }, [sessionActive])
 
-  // Init WebGazer via npm package — no mouse fallback
+  // Init WebGazer — show calibration immediately, load in background
   useEffect(() => {
     if (!enabled || initRef.current) return
     initRef.current = true
-    setWgStatus('loading')
     setWgError(null)
+    setWgStatus('calibrating') // show overlay right away, no loading wait
 
     import('webgazer').then(module => {
       const wg = module.default ?? module
       wgRef.current = wg
-
-      // Clear any stale calibration from previous sessions — this is the main
-      // cause of drift when head position or lighting changes between runs
       wg.clearData()
       wg.saveDataAcrossSessions(false)
-      // weightedRidge weights recent clicks more heavily, reducing cumulative drift
       wg.setRegression('weightedRidge')
 
       wg.setGazeListener((data) => {
         if (!data) return
         const prev = gazeSmoothRef.current
-        // Outlier rejection: large jumps are blinks or noise, not real gaze
         if (prev) {
           const dist = Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2)
           if (dist > MAX_JUMP_PX) return
         }
-        // EMA smoothing — alpha 0.35: more smoothing than before, less lag than 0.25
         const alpha = 0.35
         const smoothed = prev
           ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
@@ -262,8 +261,6 @@ export default function GazeTracker({
         setWgError(err?.message || 'Camera access denied or unavailable')
         initRef.current = false
       })
-
-      setWgStatus('calibrating')
     }).catch(err => {
       setWgStatus('error')
       setWgError('Failed to load WebGazer: ' + (err?.message || err))
