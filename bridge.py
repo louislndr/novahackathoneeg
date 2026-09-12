@@ -233,6 +233,10 @@ Use --eeg-host only to skip the scan and connect directly to a known IP.
     print("  3. Enable LSL: Extras → LSL → Start")
     print()
 
+    # Free port 4514 if a previous bridge is still holding it
+    import subprocess
+    subprocess.run(["bash", "-c", f"lsof -ti :{WS_PORT} | xargs kill -9 2>/dev/null"], check=False)
+
     explicit = [h.strip() for h in args.eeg_host.split(",")] if args.eeg_host else None
     prepare_discovery(explicit)  # must run before any pylsl import
 
