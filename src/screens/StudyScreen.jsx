@@ -130,9 +130,9 @@ export default function StudyScreen({
               disabled={!iframeUrl}
               whileHover={iframeUrl ? { scale: 1.02 } : {}}
               whileTap={iframeUrl ? { scale: 0.97 } : {}}
-              className="btn-mint py-2.5 flex-shrink-0 w-36 justify-center"
+              className="btn-mint py-2.5 flex-shrink-0 w-40 justify-center"
             >
-              <Play size={13} />
+              <Play size={14} />
               Start analysis
             </motion.button>
           ) : (
@@ -141,7 +141,7 @@ export default function StudyScreen({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="flex items-center gap-2 flex-shrink-0 w-36"
+              className="flex items-center gap-2 flex-shrink-0 w-40"
             >
               <div className="flex items-center gap-2 flex-1 bg-[#111111] border border-white/[0.07] rounded-lg px-3 py-2.5 min-w-0">
                 <motion.span
