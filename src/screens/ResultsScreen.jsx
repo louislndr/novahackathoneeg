@@ -77,13 +77,13 @@ export default function ResultsScreen({ suggestions, targetUrl, setScreen, reset
         </motion.div>
 
         {/* Summary */}
-        <motion.div variants={item} className="grid grid-cols-3 gap-3">
+        <motion.div variants={item} className="grid grid-cols-3 gap-4">
           {[
             { label: 'Friction points', value: suggestions.length },
             { label: 'High-load triggers', value: highLoadCount, accent: highLoadCount > 0 },
             { label: 'Avg EEG load', value: `${Math.round(suggestions.reduce((a, s) => a + s.eegLoad, 0) / suggestions.length)}/100` },
           ].map(({ label, value, accent }) => (
-            <div key={label} className="panel p-4 text-center">
+            <div key={label} className="panel p-5 text-center">
               <p className="text-white/35 text-[11px] mb-1">{label}</p>
               <p className={`text-2xl font-light ${accent ? 'text-red-400' : 'text-white'}`}>{value}</p>
             </div>
@@ -133,7 +133,7 @@ export default function ResultsScreen({ suggestions, targetUrl, setScreen, reset
                   <Sparkles size={13} className="text-violet-400/60 flex-shrink-0" />
                 </div>
 
-                <div className="bg-violet-500/[0.06] border border-violet-500/15 rounded-lg p-3.5">
+                <div className="bg-violet-500/[0.06] border border-violet-500/15 rounded-lg p-4">
                   <p className="text-white/80 text-sm leading-relaxed">{s.suggestion ?? s.text}</p>
                 </div>
               </motion.div>

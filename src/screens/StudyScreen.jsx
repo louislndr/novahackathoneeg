@@ -88,8 +88,8 @@ export default function StudyScreen({
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* URL bar + session controls */}
-      <div className="flex-shrink-0 px-5 py-3 border-b border-white/[0.05] flex items-center gap-2">
-        <div className="flex-1 flex items-center gap-2 bg-[#111111] border border-white/[0.07] rounded-lg px-3 py-2 focus-within:border-mint-500/30 focus-within:ring-1 focus-within:ring-mint-500/10 transition-all">
+      <div className="flex-shrink-0 px-5 py-3 border-b border-white/[0.05] flex items-center gap-3">
+        <div className="flex-1 flex items-center gap-2 bg-[#111111] border border-white/[0.07] rounded-lg px-3 py-2.5 focus-within:border-mint-500/30 focus-within:ring-1 focus-within:ring-mint-500/10 transition-all">
           <Globe size={13} className="text-white/25 flex-shrink-0" />
           <input
             type="url"
@@ -111,7 +111,7 @@ export default function StudyScreen({
           disabled={!urlInput.trim()}
           whileHover={urlInput.trim() ? { scale: 1.02 } : {}}
           whileTap={urlInput.trim() ? { scale: 0.97 } : {}}
-          className="btn-mint py-2 flex-shrink-0"
+          className="btn-mint py-2.5 flex-shrink-0"
         >
           Load
           <ArrowRight size={13} />
@@ -122,14 +122,14 @@ export default function StudyScreen({
             href={iframeUrl}
             target="_blank"
             rel="noreferrer"
-            className="btn-ghost py-2 flex-shrink-0"
+            className="btn-ghost py-2.5 flex-shrink-0"
             title="Open in new tab"
           >
             <ExternalLink size={13} />
           </a>
         )}
 
-        <div className="w-px h-5 bg-white/[0.08] mx-1 flex-shrink-0" />
+        <div className="w-px h-5 bg-white/[0.08] flex-shrink-0" />
 
         {/* Session controls */}
         <AnimatePresence mode="wait">
@@ -143,7 +143,7 @@ export default function StudyScreen({
               disabled={!iframeUrl}
               whileHover={iframeUrl ? { scale: 1.02 } : {}}
               whileTap={iframeUrl ? { scale: 0.97 } : {}}
-              className="btn-mint py-2 flex-shrink-0"
+              className="btn-mint py-2.5 flex-shrink-0"
             >
               <Play size={13} />
               Start analysis
@@ -156,7 +156,7 @@ export default function StudyScreen({
               exit={{ opacity: 0, scale: 0.95 }}
               className="flex items-center gap-2 flex-shrink-0"
             >
-              <div className="flex items-center gap-2 bg-[#111111] border border-white/[0.07] rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 bg-[#111111] border border-white/[0.07] rounded-lg px-3 py-2.5">
                 <motion.span
                   animate={{ opacity: [1, 0.2, 1] }}
                   transition={{ repeat: Infinity, duration: 1.5 }}
@@ -168,7 +168,7 @@ export default function StudyScreen({
                 onClick={stopSession}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
-                className="btn-ghost py-2 text-red-400 border-red-400/20 hover:bg-red-400/5"
+                className="btn-ghost py-2.5 text-red-400 border-red-400/20 hover:bg-red-400/5"
               >
                 <Square size={11} />
                 Stop
@@ -179,7 +179,7 @@ export default function StudyScreen({
       </div>
 
       {/* Preview pane */}
-      <div className="flex-1 p-4 min-h-0 overflow-hidden">
+      <div className="flex-1 px-5 py-4 min-h-0 overflow-hidden">
         <div className="h-full flex flex-col bg-[#0a0a0a] border border-white/[0.05] rounded-xl overflow-hidden relative">
           {/* Browser chrome */}
           {iframeUrl && (

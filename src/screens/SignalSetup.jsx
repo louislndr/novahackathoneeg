@@ -35,7 +35,7 @@ function DeviceCard({ title, subtitle, status, channels }) {
             <Radio size={14} className={connected ? 'text-mint-500' : 'text-white/25'} />
             <span className="text-sm font-semibold">{title}</span>
           </div>
-          <p className="text-white/35 text-xs ml-5">{subtitle}</p>
+          <p className="text-white/35 text-xs ml-6">{subtitle}</p>
         </div>
         <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${
           connected
@@ -111,7 +111,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-lg bg-yellow-500/[0.06] border border-yellow-500/20 mt-3">
+                <div className="flex items-start gap-2.5 p-4 rounded-lg bg-yellow-500/[0.06] border border-yellow-500/20 mt-3">
                   <AlertTriangle size={13} className="text-yellow-400 flex-shrink-0 mt-0.5" />
                   <p className="text-yellow-400/80 text-xs leading-relaxed">
                     <strong>Simulated EEG</strong> — All signals shown below are algorithmically generated. They do not represent real brain activity, cognitive states, or any physiological measurement.
@@ -132,7 +132,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
               exit={{ opacity: 0, y: -6 }}
               className="panel p-5"
             >
-              <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-semibold">Live Signal Preview</h3>
                   <p className="text-white/35 text-xs mt-0.5">6 of 12 channels shown</p>
@@ -194,7 +194,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
               >
                 <div className="mt-4 space-y-3">
                   {/* How it works */}
-                  <div className="bg-violet-500/[0.06] border border-violet-500/20 rounded-lg p-3.5">
+                  <div className="bg-violet-500/[0.06] border border-violet-500/20 rounded-lg p-4">
                     <div className="flex items-center gap-1.5 mb-2">
                       <Sparkles size={12} className="text-violet-400" />
                       <span className="text-xs font-medium text-violet-400">How it works</span>
@@ -262,7 +262,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
               </div>
             ))}
           </div>
-          <div className="mt-4 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+          <div className="mt-4 px-4 py-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
             <p className="text-white/20 text-xs">
               LSL stream name: <span className="text-white/40">FrictionFix_EEG</span> · Port: <span className="text-white/40">4513</span>
             </p>
