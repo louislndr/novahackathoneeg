@@ -2,3 +2,16 @@ node_modules/
 dist/
 .DS_Store
 *.local
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+*.egg-info/
+.env
+backend/data/
+backend/reports/
+*.cnt
+*.trg
+*.evt
+*.psydat
+*.zip
