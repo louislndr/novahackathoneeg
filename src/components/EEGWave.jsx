@@ -9,47 +9,57 @@ const CHANNEL_CONFIGS = [
   { freq: 0.9, phase: 1.8, amp: 0.95 },
 ]
 
+// Shared RAF ticker — one animation loop for all active EEGWave instances
+const listeners = new Set()
+let rafId = null
+let tick = 0
+
+function startSharedRaf() {
+  if (rafId !== null) return
+  const loop = () => {
+    tick++
+    listeners.forEach(fn => fn(tick))
+    rafId = requestAnimationFrame(loop)
+  }
+  rafId = requestAnimationFrame(loop)
+}
+
+function stopSharedRaf() {
+  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
+}
+
 export default function EEGWave({ active, hasError = false, height = 80, channelIndex = 0 }) {
   const canvasRef = useRef(null)
-  const rafRef = useRef(null)
-  const tRef = useRef(0)
-  const noiseRef = useRef([])
+  const noiseRef = useRef(null)
 
   useEffect(() => {
-    if (!active) {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      return
-    }
+    if (!active) return
 
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
+    const ctx = canvas.getContext('2d', { willReadFrequently: false })
     const cfg = CHANNEL_CONFIGS[channelIndex % CHANNEL_CONFIGS.length]
 
-    // Pre-generate smooth noise
-    if (noiseRef.current.length === 0) {
-      for (let i = 0; i < 1200; i++) noiseRef.current.push((Math.random() - 0.5) * 2)
+    if (!noiseRef.current) {
+      const n = new Float32Array(1200)
+      for (let i = 0; i < n.length; i++) n[i] = (Math.random() - 0.5) * 2
+      noiseRef.current = n
     }
+    const noise = noiseRef.current
 
-    const draw = () => {
-      tRef.current += 0.4
-      const t = tRef.current
+    const draw = (t) => {
       const w = canvas.width
       const h = canvas.height
       const mid = h / 2
       const amp = hasError ? h * 0.28 : h * 0.18
-      const noise = noiseRef.current
 
       ctx.clearRect(0, 0, w, h)
 
-      // Subtle grid lines
+      // Grid lines — no shadow, just thin strokes
       ctx.strokeStyle = 'rgba(255,255,255,0.025)'
       ctx.lineWidth = 1
       for (let y = h * 0.25; y < h; y += h * 0.25) {
-        ctx.beginPath()
-        ctx.moveTo(0, y)
-        ctx.lineTo(w, y)
-        ctx.stroke()
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke()
       }
 
       const color = hasError ? '#f87171' : '#00e5a0'
@@ -59,37 +69,36 @@ export default function EEGWave({ active, hasError = false, height = 80, channel
       ctx.shadowColor = color
       ctx.shadowBlur = hasError ? 8 : 5
 
-      for (let x = 0; x <= w; x++) {
+      const step = 2
+      for (let x = 0; x <= w; x += step) {
         const phase = ((x / w) * Math.PI * 6 * cfg.freq) + t * 0.06 + cfg.phase
         const ni = (Math.floor(x + t * 0.3) % noise.length + noise.length) % noise.length
-        const smoothNoise = (noise[ni] + (noise[(ni + 1) % noise.length] || 0)) * 0.5
+        const sn = (noise[ni] + noise[(ni + 1) % noise.length]) * 0.5
         const wave =
           Math.sin(phase) * amp * cfg.amp +
           Math.sin(phase * 2.4 + 1.1) * amp * 0.35 * cfg.amp +
           Math.sin(phase * 5.1 + 0.7) * amp * 0.15 +
-          smoothNoise * (hasError ? amp * 0.12 : amp * 0.06)
+          sn * (hasError ? amp * 0.12 : amp * 0.06)
 
         if (x === 0) ctx.moveTo(x, mid + wave)
         else ctx.lineTo(x, mid + wave)
       }
       ctx.stroke()
       ctx.shadowBlur = 0
-
-      rafRef.current = requestAnimationFrame(draw)
     }
 
-    draw()
+    listeners.add(draw)
+    startSharedRaf()
+
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      listeners.delete(draw)
+      if (listeners.size === 0) stopSharedRaf()
     }
   }, [active, hasError, channelIndex])
 
   if (!active) {
     return (
-      <div
-        style={{ height }}
-        className="flex items-center justify-center text-white/15 text-xs"
-      >
+      <div style={{ height }} className="flex items-center justify-center text-white/15 text-xs">
         — no signal —
       </div>
     )
@@ -101,7 +110,6 @@ export default function EEGWave({ active, hasError = false, height = 80, channel
       width={400}
       height={height}
       className="w-full block"
-      style={{ imageRendering: 'auto' }}
     />
   )
 }

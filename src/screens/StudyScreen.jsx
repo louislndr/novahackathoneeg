@@ -7,9 +7,9 @@ import GazeTracker from '../components/GazeTracker'
 import { formatMsLive } from '../App'
 
 const DEMO_SITES = [
-  { label: 'Wikipedia', url: 'https://en.wikipedia.org/wiki/Electroencephalography' },
-  { label: 'MDN Web Docs', url: 'https://developer.mozilla.org/en-US/docs/Web/HTML' },
-  { label: 'Example.com', url: 'https://example.com' },
+  { label: 'Bookstore', url: 'https://books.toscrape.com' },
+  { label: 'Quotes Blog', url: 'https://quotes.toscrape.com' },
+  { label: 'Test Forms', url: 'https://the-internet.herokuapp.com' },
 ]
 
 function EmptyPreview({ onLoad }) {
@@ -45,8 +45,8 @@ export default function StudyScreen({
   sessionActive, targetUrl, setTargetUrl,
   eegMode, gazeEnabled, apiKey,
   suggestions, addSuggestion,
-  elapsed, liveEegLoad,
-  startSession, stopSession,
+  elapsed, liveEegLoad, recalibrateKey,
+  startSession, stopSession, sendGaze,
 }) {
   const [urlInput, setUrlInput] = useState('')
   const [iframeUrl, setIframeUrl] = useState('')
@@ -95,7 +95,7 @@ export default function StudyScreen({
             value={urlInput}
             onChange={e => setUrlInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Enter a URL to analyse — e.g. https://example.com"
+            placeholder="Enter a URL to analyse — e.g. https://books.toscrape.com"
             className="flex-1 bg-transparent text-sm text-white placeholder:text-white/20 outline-none"
           />
           {iframeUrl && (
@@ -203,10 +203,11 @@ export default function StudyScreen({
             targetUrl={iframeUrl}
             apiKey={apiKey}
             eegMode={eegMode}
-            elapsed={elapsed}
             iframeRef={iframeRef}
             onSuggestion={handleSuggestion}
+            onGaze={sendGaze}
             liveEegLoad={liveEegLoad}
+            recalibrateKey={recalibrateKey}
           />
         </div>
       </div>
