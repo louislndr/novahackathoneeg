@@ -106,6 +106,25 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
               status={live ? eegWsStatus : 'disconnected'}
               channels={24}
             />
+            {live && eegWsStatus === 'error' && (
+              <div className="mt-3 rounded-lg bg-red-400/[0.06] border border-red-400/15 px-3 py-2.5 space-y-1">
+                <p className="text-xs text-red-400/80 font-medium">Bridge not running</p>
+                <p className="text-[11px] text-white/35 leading-relaxed">
+                  On your laptop (same WiFi as the eego machine), run:
+                </p>
+                <code className="block text-[11px] font-mono bg-white/[0.05] text-white/60 px-2 py-1.5 rounded">
+                  python3 bridge.py
+                </code>
+                <p className="text-[11px] text-white/25 leading-relaxed">
+                  Then in eego: Extras → LSL → Start. Toggle off and back on to reconnect.
+                </p>
+              </div>
+            )}
+            {live && eegWsStatus === 'searching' && (
+              <p className="mt-2 text-[11px] text-yellow-400/60 ml-1">
+                Bridge connected — scanning network for eego LSL stream…
+              </p>
+            )}
           </div>
         </motion.div>
 
