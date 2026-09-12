@@ -10,7 +10,15 @@ from fastapi.responses import JSONResponse
 from .engine import Manager, RateLimitExceeded
 from .schemas import (SessionConfig, EEGChunk, BehaviorEvent, GazeObservation,
                       CalibrationLabel, EndRequest, SuggestionRequest)
-from .suggestions import SuggestionContext, SuggestionUnavailable, VertexGeminiSuggestionService
+from .suggestions import (SuggestionContext, SuggestionUnavailable,
+                          RemoteSuggestionService, VertexGeminiSuggestionService)
+
+
+def _default_suggestion_service():
+    proxy_url = os.environ.get("FRICTIONFIX_SUGGESTION_PROXY_URL")
+    if proxy_url:
+        return RemoteSuggestionService(proxy_url, os.environ.get("FRICTIONFIX_SUGGESTION_PROXY_TOKEN"))
+    return VertexGeminiSuggestionService()
 
 
 def _summarize_for_suggestion(session, record):
@@ -37,7 +45,7 @@ def _summarize_for_suggestion(session, record):
 def create_app(data_path=None, clock=None, suggestion_service=None):
     path = data_path or os.environ.get("FRICTIONFIX_DB", str(Path(__file__).resolve().parents[1] / "data" / "sessions.sqlite3"))
     manager = Manager(path, **({"clock": clock} if clock else {}))
-    suggestion_service = suggestion_service or VertexGeminiSuggestionService()
+    suggestion_service = suggestion_service or _default_suggestion_service()
 
     def run_auto_suggestions(session):
         pending, session.pending_auto_suggest = session.pending_auto_suggest, []
