@@ -40,7 +40,7 @@ function CalibrationOverlay({ onDone }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-[#09080f]/92 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] bg-[#09080f]/96"
     >
       <div className="absolute text-center pointer-events-none select-none" style={{ top: '30%', left: '50%', transform: 'translateX(-50%)' }}>
         <h2 className="text-lg font-semibold mb-1">Eye Tracking Calibration</h2>
@@ -69,11 +69,7 @@ function CalibrationOverlay({ onDone }) {
               {complete && <CheckCircle2 size={14} className="text-green-400" />}
             </div>
             {!complete && (
-              <motion.div
-                animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
-                transition={{ repeat: Infinity, duration: 2, ease: 'easeOut' }}
-                className="absolute inset-[-4px] rounded-full border border-violet-400/25 pointer-events-none"
-              />
+              <span className="absolute inset-[-4px] rounded-full border border-violet-400/30 pointer-events-none animate-ping" />
             )}
           </button>
         )
@@ -161,7 +157,7 @@ const _pendingAttach = new Set()
 
 export default function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, iframeRef, onSuggestion,
-  onGaze, liveEegLoad, recalibrateKey,
+  onGaze, liveEegLoad, recalibrateKey, onCalibrationChange,
 }) {
   // Only state that actually needs to drive renders
   const [wgStatus, setWgStatus] = useState('idle')
@@ -520,6 +516,11 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
     gazeSmoothRef.current = null
     setWgStatus('calibrating')
   }, [recalibrateKey])
+
+  // Tell App to pause ShaderGradient while calibration overlay is visible
+  useEffect(() => {
+    onCalibrationChange?.(wgStatus === 'calibrating')
+  }, [wgStatus, onCalibrationChange])
 
   if (!enabled) return null
 

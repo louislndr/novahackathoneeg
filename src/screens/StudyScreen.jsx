@@ -47,7 +47,7 @@ export default function StudyScreen({
   eegMode, gazeEnabled, apiKey,
   suggestions, addSuggestion,
   elapsed, liveEegLoad, recalibrateKey,
-  startSession, stopSession, sendGaze, sendBehaviorEvent,
+  startSession, stopSession, sendGaze, sendBehaviorEvent, onCalibrationChange,
 }) {
   const [urlInput, setUrlInput] = useState('')
   const [iframeUrl, setIframeUrl] = useState('')
@@ -239,6 +239,7 @@ export default function StudyScreen({
             onGaze={sendGaze}
             liveEegLoad={liveEegLoad}
             recalibrateKey={recalibrateKey}
+            onCalibrationChange={onCalibrationChange}
           />
         </div>
       </div>

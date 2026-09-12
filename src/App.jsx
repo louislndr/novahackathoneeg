@@ -48,6 +48,7 @@ export default function App() {
   const eegHistoryRef = useRef([]) // circular buffer: last 100 samples per channel
   const [recalibrateKey, setRecalibrateKey] = useState(0)
   const [backendFrictionEvents, setBackendFrictionEvents] = useState([])
+  const [isCalibrating, setIsCalibrating] = useState(false)
 
   const eegWsRef = useRef(null)
   const backendSessionRef = useRef(null)
@@ -197,6 +198,7 @@ export default function App() {
     backendFrictionEvents,
     sendGaze,
     sendBehaviorEvent,
+    onCalibrationChange: setIsCalibrating,
   }
 
   return (
@@ -207,7 +209,7 @@ export default function App() {
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
         >
           <ShaderGradient
-            animate="on"
+            animate={isCalibrating ? 'off' : 'on'}
             axesHelper="off"
             brightness={1.2}
             cAzimuthAngle={180}
