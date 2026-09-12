@@ -2,13 +2,12 @@
 """
 FrictionFix — ANT Neuro EEG WebSocket bridge (LSL → WebSocket)
 
-Works with eego on the same machine OR on a different machine over WiFi/LAN.
-If the eego machine is separate, pass its IP address:
+Auto-discovers the eego machine on the local network — no IP config needed.
 
+    python3 bridge.py
+
+If you want to skip the scan and specify the IP directly:
     python3 bridge.py --eeg-host 192.168.1.42
-
-Without --eeg-host, LSL multicast discovery is used (works when both machines
-are on the same subnet and the AP passes multicast — often blocked on WiFi).
 
 Setup (one-time):
     pip install pylsl websockets numpy
@@ -16,22 +15,28 @@ Setup (one-time):
 Run each session:
     1. Open ANT Neuro eego software and start a recording
     2. Enable LSL in eego: Extras → LSL → Start
-    3. python3 bridge.py [--eeg-host <IP of eego machine>]
+    3. python3 bridge.py
 """
 
 import argparse
 import asyncio
+import concurrent.futures
+import ipaddress
 import json
 import os
+import socket
 import tempfile
+
 import numpy as np
 import websockets
 
-WS_PORT     = 4514
-UPDATE_HZ   = 10
-WINDOW_S    = 2
-LSL_TIMEOUT = 30   # longer for cross-machine discovery
+WS_PORT   = 4514
+UPDATE_HZ = 10
+WINDOW_S  = 2
+LSL_PORT  = 16571   # default LSL TCP port (all LSL-capable software listens here)
 
+
+# ── Signal processing ─────────────────────────────────────────────────────────
 
 def band_power(data: np.ndarray, srate: float, lo: float, hi: float) -> float:
     n     = data.shape[0]
@@ -47,23 +52,110 @@ def compute_load(buf: np.ndarray, srate: float) -> float:
         return 30.0
     ratios = []
     for ch in range(buf.shape[1]):
-        ch_data = buf[:, ch] - buf[:, ch].mean()
-        alpha   = band_power(ch_data, srate,  8.0, 13.0)
-        theta   = band_power(ch_data, srate,  4.0,  8.0)
-        beta    = band_power(ch_data, srate, 13.0, 30.0)
+        d     = buf[:, ch] - buf[:, ch].mean()
+        alpha = band_power(d, srate,  8.0, 13.0)
+        theta = band_power(d, srate,  4.0,  8.0)
+        beta  = band_power(d, srate, 13.0, 30.0)
         ratios.append((theta + beta) / max(alpha, 1e-9))
-    ratio = float(np.mean(ratios))
-    return round(float(np.clip((ratio - 0.5) / 4.0 * 80 + 10, 0, 100)), 1)
+    return round(float(np.clip((float(np.mean(ratios)) - 0.5) / 4.0 * 80 + 10, 0, 100)), 1)
 
+
+# ── Network discovery ─────────────────────────────────────────────────────────
+
+def get_outbound_ip() -> str | None:
+    """Return the IP this machine uses to reach the outside network."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return None
+
+
+def _probe(host: str) -> str | None:
+    """Return host if LSL_PORT is open, else None."""
+    try:
+        with socket.create_connection((host, LSL_PORT), timeout=0.4):
+            return host
+    except Exception:
+        return None
+
+
+def scan_subnet(local_ip: str) -> list[str]:
+    """TCP-scan the /24 subnet for hosts with LSL port open (≈1–2 s)."""
+    try:
+        net = ipaddress.IPv4Network(f"{local_ip}/24", strict=False)
+    except Exception:
+        return []
+    hosts = [str(h) for h in net.hosts() if str(h) != local_ip]
+    print(f"Scanning {len(hosts)} hosts on {net} for LSL port {LSL_PORT}…")
+    found = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as pool:
+        for result in pool.map(_probe, hosts):
+            if result:
+                found.append(result)
+                print(f"  → LSL host found: {result}")
+    return found
+
+
+def configure_unicast(peers: list[str]) -> str:
+    """
+    Write a temp lsl_api.cfg with KnownPeers and point LSLLIB_CONFIGURATION_FILE
+    at it. Must be called before pylsl is imported for the first time.
+    """
+    peer_str = ", ".join(f"{{{p}}}" for p in peers)
+    cfg      = f"[lab]\nKnownPeers = {peer_str}\nSessionID = frictionfix\n"
+    path     = os.path.join(tempfile.mkdtemp(prefix="frictionfix_lsl_"), "lsl_api.cfg")
+    with open(path, "w") as f:
+        f.write(cfg)
+    os.environ["LSLLIB_CONFIGURATION_FILE"] = path
+    return path
+
+
+def prepare_discovery(explicit: list[str] | None) -> bool:
+    """
+    Run before any pylsl import. Returns True if unicast peers were configured.
+
+    Strategy:
+    - Explicit hosts supplied → configure unicast immediately, skip scan.
+    - Otherwise → scan the /24 subnet for LSL port. If hosts found, configure
+      unicast so pylsl resolves them alongside multicast. If nothing found,
+      leave defaults (multicast only).
+    """
+    if explicit:
+        path = configure_unicast(explicit)
+        print(f"Unicast mode → {', '.join(explicit)}  (config: {path})")
+        return True
+
+    local_ip = get_outbound_ip()
+    if not local_ip:
+        print("Could not determine local IP — falling back to LSL multicast.")
+        return False
+
+    print(f"Local IP: {local_ip}")
+    peers = scan_subnet(local_ip)
+    if peers:
+        path = configure_unicast(peers)
+        print(f"Unicast config written: {path}")
+        return True
+
+    print("No LSL hosts found on subnet — trying multicast.")
+    return False
+
+
+# ── WebSocket handler ─────────────────────────────────────────────────────────
 
 async def handle_client(websocket):
-    # Import inside the handler so LSLLIB_CONFIGURATION_FILE is already set
+    # pylsl imported here so LSLLIB_CONFIGURATION_FILE is already set
     from pylsl import StreamInlet, resolve_byprop, LostError
 
-    print("Browser connected — searching for LSL EEG stream…")
-    streams = resolve_byprop('type', 'EEG', timeout=LSL_TIMEOUT)
+    print("Browser connected — resolving LSL EEG stream…")
+    streams = resolve_byprop('type', 'EEG', timeout=20)
     if not streams:
-        msg = "No LSL EEG stream found. Ensure eego LSL is started (Extras → LSL → Start)."
+        msg = ("No LSL EEG stream found. "
+               "Make sure eego is recording and LSL is started (Extras → LSL → Start).")
         print(msg)
         try:
             await websocket.send(json.dumps({"error": msg}))
@@ -79,14 +171,14 @@ async def handle_client(websocket):
     win    = int(srate * WINDOW_S)
     buf    = np.zeros((win, n_ch))
 
-    print(f"LSL stream: {info.name()} · {n_ch} ch · {srate} Hz · host: {info.hostname()}")
+    print(f"Stream: {info.name()} · {n_ch} ch · {srate} Hz · host: {info.hostname()}")
     try:
         await websocket.send(json.dumps({
-            "status": "stream_found",
-            "name": info.name(),
+            "status":   "stream_found",
+            "name":     info.name(),
             "channels": n_ch,
-            "srate": srate,
-            "host": info.hostname(),
+            "srate":    srate,
+            "host":     info.hostname(),
         }))
     except Exception:
         return
@@ -100,15 +192,11 @@ async def handle_client(websocket):
                 chunk = np.array(samples)
                 buf   = np.roll(buf, -len(chunk), axis=0)
                 buf[-len(chunk):] = chunk[:, :n_ch]
-
-            load     = compute_load(buf, srate)
-            channels = buf[-1].tolist()
-
+            load = compute_load(buf, srate)
             await websocket.send(json.dumps({
                 "eegLoad":  load,
-                "channels": channels,
+                "channels": buf[-1].tolist(),
             }))
-
     except (websockets.exceptions.ConnectionClosed, LostError):
         print("Client disconnected")
     except Exception as e:
@@ -120,52 +208,37 @@ async def handle_client(websocket):
 
 async def serve():
     async with websockets.serve(handle_client, "localhost", WS_PORT):
-        print(f"Listening on ws://localhost:{WS_PORT}  (waiting for browser…)")
+        print(f"Listening on ws://localhost:{WS_PORT}  (waiting for browser…)\n")
         await asyncio.Future()
 
+
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="FrictionFix LSL→WebSocket bridge",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  Same machine as eego:
-    python3 bridge.py
-
-  eego running on a different computer (wireless or wired):
-    python3 bridge.py --eeg-host 192.168.1.42
-
-  Multiple peers (e.g. two amplifiers):
-    python3 bridge.py --eeg-host 192.168.1.42,192.168.1.43
+By default the bridge auto-discovers the eego machine on your local network.
+Use --eeg-host only if you want to skip the scan and specify an IP directly.
 """,
     )
     parser.add_argument(
         "--eeg-host",
         metavar="IP[,IP...]",
-        help="IP address(es) of the machine running eego. "
-             "Required when WiFi/LAN blocks LSL multicast discovery.",
+        help="Skip auto-discovery and connect directly to this IP.",
     )
     args = parser.parse_args()
 
-    if args.eeg_host:
-        # LSL uses UDP multicast for auto-discovery, which most WiFi APs block.
-        # Writing an lsl_api.cfg with KnownPeers switches to unicast so discovery
-        # works across machines on any network topology.
-        peers = ", ".join(f"{{{ip.strip()}}}" for ip in args.eeg_host.split(","))
-        cfg   = f"[lab]\nKnownPeers = {peers}\nSessionID = frictionfix\n"
-        tmp   = tempfile.mkdtemp(prefix="frictionfix_lsl_")
-        path  = os.path.join(tmp, "lsl_api.cfg")
-        with open(path, "w") as f:
-            f.write(cfg)
-        os.environ["LSLLIB_CONFIGURATION_FILE"] = path
-        print(f"LSL unicast mode → {args.eeg_host}")
-        print(f"Config: {path}")
-    else:
-        print("LSL multicast discovery (same machine or multicast-capable network)")
+    print("=" * 54)
+    print("  FrictionFix EEG bridge   LSL → WebSocket")
+    print("=" * 54)
+    print()
 
-    print("=" * 52)
-    print(" FrictionFix EEG bridge   LSL → WebSocket")
-    print("=" * 52)
+    explicit = [h.strip() for h in args.eeg_host.split(",")] if args.eeg_host else None
+
+    # Discover and configure BEFORE any pylsl import
+    prepare_discovery(explicit)
+
     print()
     asyncio.run(serve())
