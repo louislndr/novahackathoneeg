@@ -66,9 +66,9 @@ export default function EEGWave({ active, hasError = false, height = 80, channel
       ctx.beginPath()
       ctx.strokeStyle = color
       ctx.lineWidth = 1.5
-      // No shadowBlur — it's the single most expensive canvas operation
+      ctx.shadowColor = color
+      ctx.shadowBlur = hasError ? 8 : 5
 
-      // Subsample: draw every 2nd pixel (visually identical at small heights)
       const step = 2
       for (let x = 0; x <= w; x += step) {
         const phase = ((x / w) * Math.PI * 6 * cfg.freq) + t * 0.06 + cfg.phase
@@ -84,6 +84,7 @@ export default function EEGWave({ active, hasError = false, height = 80, channel
         else ctx.lineTo(x, mid + wave)
       }
       ctx.stroke()
+      ctx.shadowBlur = 0
     }
 
     listeners.add(draw)

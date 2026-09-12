@@ -195,7 +195,7 @@ export default function App() {
             envPreset="city"
             grain="on"
             lightType="3d"
-            pixelDensity={0.5}
+            pixelDensity={1}
             positionX={-1.4}
             positionY={0}
             positionZ={0}
@@ -211,7 +211,7 @@ export default function App() {
             uAmplitude={1}
             uDensity={1.3}
             uFrequency={5.5}
-            uSpeed={0.2}
+            uSpeed={0.4}
             uStrength={4}
             uTime={0}
             wireframe={false}
