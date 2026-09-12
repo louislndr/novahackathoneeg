@@ -8,12 +8,17 @@ const FIXATION_MS = 2000
 const MIN_TRIGGER_INTERVAL_MS = 10000
 const LOAD_THRESHOLD = 40
 
+// 9-point grid: better edge/corner coverage significantly reduces drift
 const CALIB_POINTS = [
-  { id: 0, style: { top: '12%', left: '12%' } },
-  { id: 1, style: { top: '12%', right: '12%' } },
-  { id: 2, style: { top: '50%', left: '50%', transform: 'translate(-50%,-50%)' } },
-  { id: 3, style: { bottom: '12%', left: '12%' } },
-  { id: 4, style: { bottom: '12%', right: '12%' } },
+  { id: 0, style: { top: '8%',  left: '8%' } },
+  { id: 1, style: { top: '8%',  left: '50%', transform: 'translateX(-50%)' } },
+  { id: 2, style: { top: '8%',  right: '8%' } },
+  { id: 3, style: { top: '50%', left: '8%',  transform: 'translateY(-50%)' } },
+  { id: 4, style: { top: '50%', left: '50%', transform: 'translate(-50%,-50%)' } },
+  { id: 5, style: { top: '50%', right: '8%', transform: 'translateY(-50%)' } },
+  { id: 6, style: { bottom: '8%', left: '8%' } },
+  { id: 7, style: { bottom: '8%', left: '50%', transform: 'translateX(-50%)' } },
+  { id: 8, style: { bottom: '8%', right: '8%' } },
 ]
 
 function CalibrationOverlay({ onDone }) {
@@ -41,8 +46,9 @@ function CalibrationOverlay({ onDone }) {
       <div className="text-center mb-8">
         <h2 className="text-lg font-semibold mb-1">Eye Tracking Calibration</h2>
         <p className="text-white/40 text-sm">
-          Click each dot <span className="text-white/70">3 times</span> while looking directly at it
+          Look directly at each dot, then click it <span className="text-white/70">3 times</span>
         </p>
+        <p className="text-white/25 text-xs mt-0.5">Keep your head still — accuracy depends on it</p>
         <p className="text-white/25 text-xs mt-1">{done}/{CALIB_POINTS.length} complete</p>
       </div>
 
@@ -158,6 +164,7 @@ export default function GazeTracker({
   const eegLoadHistory = useRef([30])
   const lastBubbleTimeRef = useRef(0)
   const lastBubblePosRef = useRef({ x: 0, y: 0 })
+  const gazeSmoothRef = useRef(null) // exponential moving average for gaze
 
   const spawnBubble = useCallback((x, y) => {
     const now = Date.now()
@@ -208,10 +215,24 @@ export default function GazeTracker({
       const wg = module.default ?? module
       wgRef.current = wg
 
+      // Clear any stale calibration from previous sessions — this is the main
+      // cause of drift when head position or lighting changes between runs
+      wg.clearData()
+      wg.saveDataAcrossSessions(false)
+      // weightedRidge weights recent clicks more heavily, reducing cumulative drift
+      wg.setRegression('weightedRidge')
+
       wg.setGazeListener((data) => {
         if (!data) return
-        setGaze({ x: data.x, y: data.y })
-        spawnBubble(data.x, data.y)
+        // Exponential moving average to reduce jitter without adding lag
+        const prev = gazeSmoothRef.current
+        const alpha = 0.4
+        const smoothed = prev
+          ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
+          : { x: data.x, y: data.y }
+        gazeSmoothRef.current = smoothed
+        setGaze(smoothed)
+        spawnBubble(smoothed.x, smoothed.y)
         setWgStatus(s => s === 'calibrating' ? s : 'tracking')
       })
       .showVideo(false)
@@ -422,7 +443,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
           </motion.div>
         )}
 
-        {sessionActive && wgStatus === 'tracking' && (
+        {wgStatus === 'tracking' && (
           <motion.div
             key="wg-eeg"
             initial={{ opacity: 0, y: -8 }}
@@ -430,16 +451,27 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
             exit={{ opacity: 0, y: -8 }}
             className="fixed top-16 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0b18]/90 backdrop-blur border border-violet-500/20 shadow"
           >
-            <motion.div animate={eegLoad > LOAD_THRESHOLD ? { scale: [1, 1.35, 1] } : {}} transition={{ repeat: Infinity, duration: 0.8 }}>
-              <Brain size={11} className={eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400/60'} />
-            </motion.div>
-            <span className="text-[11px] font-mono text-white/45">
-              EEG{' '}
-              <span className={`font-semibold ${eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400'}`}>
-                {eegLoad}
-              </span>
-              <span className="text-white/20">/100</span>
-            </span>
+            {sessionActive && (
+              <>
+                <motion.div animate={eegLoad > LOAD_THRESHOLD ? { scale: [1, 1.35, 1] } : {}} transition={{ repeat: Infinity, duration: 0.8 }}>
+                  <Brain size={11} className={eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400/60'} />
+                </motion.div>
+                <span className="text-[11px] font-mono text-white/45">
+                  EEG{' '}
+                  <span className={`font-semibold ${eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400'}`}>
+                    {eegLoad}
+                  </span>
+                  <span className="text-white/20">/100</span>
+                </span>
+                <span className="text-white/15 text-[10px]">·</span>
+              </>
+            )}
+            <button
+              onClick={() => { gazeSmoothRef.current = null; setWgStatus('calibrating') }}
+              className="text-[10px] text-violet-400/50 hover:text-violet-400 transition-colors"
+            >
+              recalibrate
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
