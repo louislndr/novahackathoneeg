@@ -110,7 +110,7 @@ export default function StudyScreen({
           disabled={!urlInput.trim()}
           whileHover={urlInput.trim() ? { scale: 1.02 } : {}}
           whileTap={urlInput.trim() ? { scale: 0.97 } : {}}
-          className="btn-mint py-2.5 flex-shrink-0"
+          className="btn-mint py-2.5 flex-shrink-0 w-36 justify-center"
         >
           Load
           <ArrowRight size={13} />
@@ -130,7 +130,7 @@ export default function StudyScreen({
               disabled={!iframeUrl}
               whileHover={iframeUrl ? { scale: 1.02 } : {}}
               whileTap={iframeUrl ? { scale: 0.97 } : {}}
-              className="btn-mint py-2.5 flex-shrink-0"
+              className="btn-mint py-2.5 flex-shrink-0 w-36 justify-center"
             >
               <Play size={13} />
               Start analysis
@@ -141,24 +141,23 @@ export default function StudyScreen({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="flex items-center gap-2 flex-shrink-0"
+              className="flex items-center gap-2 flex-shrink-0 w-36"
             >
-              <div className="flex items-center gap-2 bg-[#111111] border border-white/[0.07] rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-2 flex-1 bg-[#111111] border border-white/[0.07] rounded-lg px-3 py-2.5 min-w-0">
                 <motion.span
                   animate={{ opacity: [1, 0.2, 1] }}
                   transition={{ repeat: Infinity, duration: 1.5 }}
-                  className="w-1.5 h-1.5 rounded-full bg-mint-500"
+                  className="w-1.5 h-1.5 rounded-full bg-mint-500 flex-shrink-0"
                 />
-                <span className="text-mint-500 text-xs font-medium tabular-nums">{formatMsLive(elapsed)}</span>
+                <span className="text-mint-500 text-xs font-medium tabular-nums truncate">{formatMsLive(elapsed)}</span>
               </div>
               <motion.button
                 onClick={stopSession}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
-                className="btn-ghost py-2.5 text-red-400 border-red-400/20 hover:bg-red-400/5"
+                className="btn-ghost py-2.5 px-3 text-red-400 border-red-400/20 hover:bg-red-400/5 flex-shrink-0"
               >
                 <Square size={11} />
-                Stop
               </motion.button>
             </motion.div>
           )}
