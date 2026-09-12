@@ -45,7 +45,7 @@ function CalibrationOverlay({ onDone }) {
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] bg-[#09080f]/92 backdrop-blur-sm flex flex-col items-center justify-center"
     >
-      <div className="text-center mb-8 pointer-events-none select-none">
+      <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none select-none" style={{ top: '20%' }}>
         <h2 className="text-lg font-semibold mb-1">Eye Tracking Calibration</h2>
         <p className="text-white/40 text-sm">
           Look directly at each dot, then click it <span className="text-white/70">3 times</span>
