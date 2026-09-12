@@ -139,6 +139,10 @@ const HEAT_RADIUS = 90
 const HEAT_DECAY = 0.018
 const MAX_JUMP_PX = 400
 
+// Pre-fetch WebGazer WASM as soon as this module loads so the first toggle is fast.
+// The browser module cache means the second import('webgazer') in the effect is instant.
+import('webgazer').catch(() => null)
+
 // Module-level singleton — WebGazer must never be begin()'d twice.
 let _wg = null
 let _wgReady = false
@@ -178,6 +182,7 @@ export default function GazeTracker({
   const fixRef = useRef({ x: 0, y: 0, start: null })
   const eegLoadRef = useRef(0)
   const lastTriggerRef = useRef(0)
+  const lastGazeCallRef = useRef(0)
   const lockedRef = useRef(false)
   const initRef = useRef(false)
   const wgRef = useRef(null)
@@ -351,9 +356,13 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
   // Stable gaze listener — does fixation detection inline, never calls setGaze
   const gazeListener = useCallback((data) => {
     if (!data) { gazeSmoothRef.current = null; return }
+    // Throttle to ~20fps — face mesh runs at camera fps and saturates the main thread
+    const now = Date.now()
+    if (now - lastGazeCallRef.current < 50) return
+    lastGazeCallRef.current = now
     const prev = gazeSmoothRef.current
     if (prev && Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2) > MAX_JUMP_PX) return
-    const alpha = 0.55
+    const alpha = 0.7
     const smoothed = prev
       ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
       : { x: data.x, y: data.y }
@@ -424,12 +433,13 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       const wg = module.default ?? module
       _wg = wg
       wgRef.current = wg
-      // Lower video resolution — face mesh is the bottleneck, 320×240 is plenty
+      // Cap resolution and framerate — face mesh is the main thread bottleneck
       wg.params.videoWidth = 320
       wg.params.videoHeight = 240
+      wg.params.camConstraints = { video: { width: 320, height: 240, frameRate: { ideal: 20, max: 20 } } }
       wg.clearData()
       wg.saveDataAcrossSessions(false)
-      wg.setRegression('weightedRidge')
+      wg.setRegression('ridge')
       wg.setGazeListener(gazeListener)
         .showVideo(false)
         .showFaceOverlay(false)
@@ -476,10 +486,14 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
     const ctx = canvas.getContext('2d')
 
     let raf
+    let skipFrame = false
     const tick = () => {
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.fillStyle = `rgba(0,0,0,${HEAT_DECAY})`
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      skipFrame = !skipFrame
+      if (!skipFrame) { // 30fps decay — no need to redraw every vsync
+        ctx.globalCompositeOperation = 'destination-out'
+        ctx.fillStyle = `rgba(0,0,0,${HEAT_DECAY})`
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+      }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
