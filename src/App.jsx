@@ -41,6 +41,7 @@ export default function App() {
   const [elapsed, setElapsed] = useState(0)
   const [eegWsStatus, setEegWsStatus] = useState('idle') // 'idle'|'connecting'|'connected'|'error'
   const [liveEegLoad, setLiveEegLoad] = useState(null)
+  const [recalibrateKey, setRecalibrateKey] = useState(0)
   const eegWsRef = useRef(null)
 
   useEffect(() => {
@@ -108,6 +109,7 @@ export default function App() {
     elapsed,
     startSession, stopSession, resetSession,
     eegWsStatus, liveEegLoad,
+    recalibrateKey,
   }
 
   return (
@@ -160,7 +162,7 @@ export default function App() {
       <div className="relative z-10 flex w-full h-full">
         <Sidebar screen={screen} setScreen={setScreen} sessionActive={sessionActive} hasResults={suggestions.length > 0} eegMode={eegMode} gazeEnabled={gazeEnabled} />
         <div className="flex flex-col flex-1 min-w-0">
-          <TopBar sessionActive={sessionActive} elapsed={elapsed} eegMode={eegMode} gazeEnabled={gazeEnabled} onNewSession={resetSession} />
+          <TopBar eegMode={eegMode} gazeEnabled={gazeEnabled} onNewSession={resetSession} onRecalibrate={() => setRecalibrateKey(k => k + 1)} />
           <main className="flex-1 overflow-hidden">
             <AnimatePresence mode="wait">
               {screen === 'study' && (

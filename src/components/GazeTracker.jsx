@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, X, Brain, CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
+import { Sparkles, X, Brain, CheckCircle2, AlertCircle } from 'lucide-react'
 
 const FIXATION_RADIUS_PX = 70
 const FIXATION_MS = 2000
@@ -150,7 +150,7 @@ let _wgReady = false
 
 export default function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, eegMode, elapsed, iframeRef, onSuggestion,
-  liveEegLoad,
+  liveEegLoad, recalibrateKey,
 }) {
   const [gaze, setGaze] = useState(null)
   const [wgStatus, setWgStatus] = useState('idle') // 'idle' | 'loading' | 'calibrating' | 'tracking' | 'error'
@@ -454,6 +454,13 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
     }
   }, [apiKey, targetUrl, iframeRef, onSuggestion])
 
+  // Recalibrate trigger from TopBar button
+  useEffect(() => {
+    if (!recalibrateKey) return
+    gazeSmoothRef.current = null
+    setWgStatus('calibrating')
+  }, [recalibrateKey])
+
   if (!enabled) return null
 
   const calibrating = wgStatus === 'calibrating'
@@ -477,21 +484,8 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
         />
       )}
 
-      {/* Status badge — loading / error / tracking */}
+      {/* Error badge only — other status handled by TopBar */}
       <AnimatePresence>
-        {wgStatus === 'loading' && (
-          <motion.div
-            key="wg-loading"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="fixed top-16 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0b18]/90 backdrop-blur border border-violet-500/20 shadow"
-          >
-            <Loader2 size={11} className="text-violet-400 animate-spin" />
-            <span className="text-xs text-white/45">Loading eye tracking…</span>
-          </motion.div>
-        )}
-
         {wgStatus === 'error' && (
           <motion.div
             key="wg-error"
@@ -502,38 +496,6 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
           >
             <AlertCircle size={11} className="text-red-400" />
             <span className="text-xs text-red-400/80">{wgError || 'Eye tracking failed'}</span>
-          </motion.div>
-        )}
-
-        {wgStatus === 'tracking' && (
-          <motion.div
-            key="wg-eeg"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="fixed top-16 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0b18]/90 backdrop-blur border border-violet-500/20 shadow"
-          >
-            {sessionActive && (
-              <>
-                <motion.div animate={eegLoad > LOAD_THRESHOLD ? { scale: [1, 1.35, 1] } : {}} transition={{ repeat: Infinity, duration: 0.8 }}>
-                  <Brain size={11} className={eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400/60'} />
-                </motion.div>
-                <span className="text-xs text-white/45">
-                  EEG{' '}
-                  <span className={`font-semibold ${eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400'}`}>
-                    {eegLoad}
-                  </span>
-                  <span className="text-white/20">/100</span>
-                </span>
-                <span className="text-white/15 text-[10px]">·</span>
-              </>
-            )}
-            <button
-              onClick={() => { gazeSmoothRef.current = null; setWgStatus('calibrating') }}
-              className="text-[11px] text-violet-400/50 hover:text-violet-400 transition-colors"
-            >
-              recalibrate
-            </button>
           </motion.div>
         )}
       </AnimatePresence>
