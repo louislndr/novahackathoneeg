@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Radio, Wifi, WifiOff, AlertTriangle, Activity, Settings } from 'lucide-react'
+import { Radio, Wifi, WifiOff, AlertTriangle, Activity, Settings, Eye, Key, Sparkles } from 'lucide-react'
 import EEGWave from '../components/EEGWave'
 
 const CHANNELS = ['Fp1', 'Fz', 'Cz', 'Pz', 'O1', 'T7']
@@ -61,7 +61,7 @@ function DeviceCard({ title, subtitle, status, channels }) {
   )
 }
 
-export default function SignalSetup({ eegMode, setEegMode }) {
+export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeEnabled, apiKey, setApiKey }) {
   const simulated = eegMode === 'simulated'
 
   const container = {
@@ -168,6 +168,80 @@ export default function SignalSetup({ eegMode, setEegMode }) {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Eye tracking + AI */}
+        <motion.div variants={item} className="panel p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Eye size={15} className={gazeEnabled ? 'text-violet-400' : 'text-white/30'} />
+                <h3 className="font-semibold text-[15px]">Eye Tracking + AI Analysis</h3>
+              </div>
+              <p className="text-white/35 text-xs mt-0.5 ml-6">
+                WebGazer.js tracks gaze · fixation + EEG load triggers Claude
+              </p>
+            </div>
+            <Toggle value={gazeEnabled} onChange={setGazeEnabled} />
+          </div>
+
+          <AnimatePresence>
+            {gazeEnabled && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-4 space-y-3">
+                  {/* How it works */}
+                  <div className="bg-violet-500/[0.06] border border-violet-500/20 rounded-lg p-3.5">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Sparkles size={12} className="text-violet-400" />
+                      <span className="text-[11px] font-semibold text-violet-400 uppercase tracking-wider">How it works</span>
+                    </div>
+                    <div className="space-y-1.5 text-xs text-white/45 leading-relaxed">
+                      <p>1. Webcam tracks your gaze in real time via WebGazer.js</p>
+                      <p>2. Fixation ≥2s on an element + EEG load ≥42/100 triggers analysis</p>
+                      <p>3. Claude receives element context and suggests a specific simplification</p>
+                      <p>4. Suggestion card appears near the fixated element</p>
+                    </div>
+                  </div>
+
+                  {/* API key input */}
+                  <div>
+                    <label className="flex items-center gap-1.5 text-[11px] font-medium text-white/40 uppercase tracking-wide mb-1.5">
+                      <Key size={10} />
+                      Anthropic API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={apiKey}
+                      onChange={e => setApiKey(e.target.value)}
+                      placeholder="sk-ant-..."
+                      className="input-base font-mono text-xs"
+                      autoComplete="off"
+                    />
+                    <p className="text-white/20 text-[10px] mt-1.5">
+                      Key is used only for in-browser API calls · never stored or sent elsewhere
+                    </p>
+                  </div>
+
+                  {apiKey.trim() && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-mint-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-mint-500 inline-block" />
+                      API key set · eye tracking ready
+                    </div>
+                  )}
+                  {gazeEnabled && !apiKey.trim() && (
+                    <p className="text-yellow-400/70 text-[11px]">
+                      ⚠ Add your API key above to enable Claude suggestions
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Live connection instructions */}
         <motion.div variants={item} className="panel p-5">

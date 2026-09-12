@@ -115,6 +115,8 @@ export default function App() {
   const [round2, setRound2] = useState(null)
   const [adaptedAtMs, setAdaptedAtMs] = useState(null)
   const [showAdaptMsg, setShowAdaptMsg] = useState(false)
+  const [gazeEnabled, setGazeEnabled] = useState(false)
+  const [apiKey, setApiKey] = useState('')
 
   useEffect(() => {
     if (phase !== 'round1' && phase !== 'round2') return
@@ -199,6 +201,8 @@ export default function App() {
     screen, setScreen,
     phase, layout,
     eegMode, setEegMode,
+    gazeEnabled, setGazeEnabled,
+    apiKey, setApiKey,
     guidedStep, setGuidedStep,
     adaptationTriggered,
     formData, setFormData,

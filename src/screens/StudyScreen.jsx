@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDown, Check, Play, ArrowRight, ArrowLeft, Zap, Clock, AlertCircle, LayoutGrid, ArrowRightCircle, CheckCircle2 } from 'lucide-react'
 import EEGWave from '../components/EEGWave'
+import GazeTracker from '../components/GazeTracker'
 import { countActiveErrors, formatMsLive } from '../App'
 
 const FORM_FIELDS = [
@@ -570,6 +571,7 @@ export default function StudyScreen(props) {
     triggerAdaptation,
     round1,
     setScreen,
+    gazeEnabled, apiKey,
   } = props
 
   const onSubmit = phase === 'round1' ? submitRound1 : submitRound2
@@ -577,6 +579,15 @@ export default function StudyScreen(props) {
 
   return (
     <div className="h-full flex gap-5 p-5 overflow-hidden">
+      <GazeTracker
+        enabled={gazeEnabled}
+        phase={phase}
+        formData={formData}
+        currentTask={currentTask}
+        apiKey={apiKey}
+        eegMode={eegMode}
+        elapsed={elapsed}
+      />
       {/* Left column */}
       <div className="flex-1 flex flex-col gap-4 min-w-0 overflow-auto">
         <AnimatePresence mode="wait">
