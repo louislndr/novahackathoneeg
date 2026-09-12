@@ -136,7 +136,7 @@ function SuggestionCard({ suggestion, onDismiss }) {
 
 const HEAT_THROTTLE_MS = 30
 const HEAT_RADIUS = 90
-const HEAT_DECAY = 0.018
+const HEAT_DECAY = 0.03
 const MAX_JUMP_PX = 400
 
 // Wait for window.webgazer to be set by the <script defer> tag in index.html.
@@ -229,13 +229,14 @@ export default function GazeTracker({
     const ctx = canvas.getContext('2d')
 
     const grd = ctx.createRadialGradient(x, y, 0, x, y, HEAT_RADIUS)
-    grd.addColorStop(0,   'rgba(255, 245, 50,  0.14)')
-    grd.addColorStop(0.2, 'rgba(255, 130, 0,   0.11)')
-    grd.addColorStop(0.5, 'rgba(220, 20, 20,   0.07)')
-    grd.addColorStop(0.8, 'rgba(140, 0, 50,    0.025)')
+    grd.addColorStop(0,   'rgba(255, 245, 50,  0.22)')
+    grd.addColorStop(0.2, 'rgba(255, 130, 0,   0.16)')
+    grd.addColorStop(0.5, 'rgba(220, 20, 20,   0.09)')
+    grd.addColorStop(0.8, 'rgba(140, 0, 50,    0.03)')
     grd.addColorStop(1,   'rgba(0, 0, 0, 0)')
 
-    ctx.globalCompositeOperation = 'lighter'
+    // source-over keeps colors in the warm range — 'lighter' overflows to white
+    ctx.globalCompositeOperation = 'source-over'
     ctx.fillStyle = grd
     ctx.beginPath()
     ctx.arc(x, y, HEAT_RADIUS, 0, Math.PI * 2)
@@ -529,7 +530,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       <canvas
         ref={canvasRef}
         className="pointer-events-none fixed inset-0 z-50"
-        style={{ opacity: wgStatus === 'tracking' ? 0.52 : 0 }}
+        style={{ opacity: wgStatus === 'tracking' ? 0.78 : 0 }}
       />
 
       {/* Analyzing pulse — position driven by motionValues, no React re-renders */}
