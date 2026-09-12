@@ -134,9 +134,9 @@ function SuggestionCard({ suggestion, onDismiss }) {
   )
 }
 
-const BUBBLE_LIFETIME = 1300
-const BUBBLE_THROTTLE_MS = 90
-const BUBBLE_MIN_MOVE_PX = 5
+const BUBBLE_LIFETIME = 2600
+const BUBBLE_THROTTLE_MS = 55
+const BUBBLE_MIN_MOVE_PX = 2
 
 export default function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, eegMode, elapsed, iframeRef, onSuggestion,
@@ -170,11 +170,11 @@ export default function GazeTracker({
     lastBubblePosRef.current = { x, y }
 
     const id = now + Math.random()
-    const size = 18 + Math.random() * 20
-    const driftX = (Math.random() - 0.5) * 14
-    const driftY = -(6 + Math.random() * 14)
+    const size = 60 + Math.random() * 40
+    const driftX = (Math.random() - 0.5) * 8
+    const driftY = (Math.random() - 0.5) * 8
 
-    setBubbles(prev => [...prev.slice(-14), { id, x, y, size, driftX, driftY }])
+    setBubbles(prev => [...prev.slice(-30), { id, x, y, size, driftX, driftY }])
     setTimeout(() => setBubbles(prev => prev.filter(b => b.id !== id)), BUBBLE_LIFETIME + 100)
   }, [])
 
@@ -364,51 +364,24 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
         <motion.div
           key={bubble.id}
           className="pointer-events-none fixed z-50"
-          style={{ left: bubble.x - bubble.size / 2, top: bubble.y - bubble.size / 2 }}
-          initial={{ opacity: 0.82, scale: 0.18, x: 0, y: 0 }}
-          animate={{ opacity: 0, scale: 1, x: bubble.driftX, y: bubble.driftY }}
-          transition={{ duration: BUBBLE_LIFETIME / 1000, ease: [0.15, 0, 0.85,1] }}
-        >
-          <div
-            style={{
-              width: bubble.size,
-              height: bubble.size,
-              borderRadius: '50%',
-              border: '1.5px solid rgba(167,139,250,0.55)',
-              background:
-                'radial-gradient(circle at 32% 28%, rgba(255,255,255,0.18) 0%, rgba(139,92,246,0.06) 45%, transparent 70%)',
-              boxShadow:
-                '0 2px 14px rgba(139,92,246,0.22), inset 0 1px 4px rgba(255,255,255,0.12)',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                top: '18%',
-                left: '22%',
-                width: '26%',
-                height: '18%',
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.55)',
-                filter: 'blur(1.5px)',
-              }}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                bottom: '22%',
-                right: '20%',
-                width: '12%',
-                height: '10%',
-                borderRadius: '50%',
-                background: 'rgba(200,180,255,0.35)',
-                filter: 'blur(1px)',
-              }}
-            />
-          </div>
-        </motion.div>
+          style={{
+            left: bubble.x - bubble.size / 2,
+            top: bubble.y - bubble.size / 2,
+            width: bubble.size,
+            height: bubble.size,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,240,80,0.95) 0%, rgba(255,110,0,0.82) 30%, rgba(230,30,30,0.55) 60%, rgba(180,0,20,0.2) 80%, transparent 100%)',
+            filter: 'blur(10px)',
+          }}
+          initial={{ opacity: 0, scale: 0.4 }}
+          animate={{
+            opacity: [0, 0.88, 0.88, 0],
+            scale: [0.4, 1, 1, 1.15],
+            x: bubble.driftX,
+            y: bubble.driftY,
+          }}
+          transition={{ duration: BUBBLE_LIFETIME / 1000, times: [0, 0.07, 0.72, 1], ease: 'linear' }}
+        />
       ))}
 
       {/* Analyzing pulse */}
