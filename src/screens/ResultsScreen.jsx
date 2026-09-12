@@ -51,7 +51,7 @@ export default function ResultsScreen({ suggestions, targetUrl, setScreen, reset
         {/* Header */}
         <motion.div variants={item} className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Friction Report</h1>
+            <h1 className="text-2xl font-semibold font-display">Friction Report</h1>
             <div className="flex items-center gap-2 mt-1">
               <Globe size={12} className="text-white/30" />
               <span className="text-white/35 text-sm truncate max-w-sm">{targetUrl || '—'}</span>
@@ -84,7 +84,7 @@ export default function ResultsScreen({ suggestions, targetUrl, setScreen, reset
             { label: 'Avg EEG load', value: `${Math.round(suggestions.reduce((a, s) => a + s.eegLoad, 0) / suggestions.length)}/100` },
           ].map(({ label, value, accent }) => (
             <div key={label} className="panel p-4 text-center">
-              <p className="text-white/30 text-[10px] mb-1">{label}</p>
+              <p className="text-white/35 text-[11px] mb-1">{label}</p>
               <p className={`text-2xl font-light ${accent ? 'text-red-400' : 'text-white'}`}>{value}</p>
             </div>
           ))}
@@ -92,7 +92,7 @@ export default function ResultsScreen({ suggestions, targetUrl, setScreen, reset
 
         {/* Friction points */}
         <motion.div variants={item}>
-          <p className="text-[11px] font-semibold text-white/30 mb-3">Detected friction points</p>
+          <p className="text-xs font-medium text-white/35 mb-3">Detected friction points</p>
           <div className="space-y-3">
             {suggestions.map((s, i) => (
               <motion.div

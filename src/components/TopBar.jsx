@@ -17,18 +17,18 @@ export default function TopBar({ sessionActive, elapsed, eegMode, gazeEnabled, o
               transition={{ repeat: Infinity, duration: 1.5 }}
               className="w-1.5 h-1.5 rounded-full bg-mint-500"
             />
-            <span className="text-[13px] text-white/50">{formatMsLive(elapsed)}</span>
+            <span className="text-sm text-white/50">{formatMsLive(elapsed)}</span>
           </motion.div>
         )}
 
         <div className="flex items-center gap-2">
           {eegMode === 'simulated' && (
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 font-medium">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 font-medium">
               Simulated EEG
             </span>
           )}
           {gazeEnabled && (
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 font-medium">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 font-medium">
               Eye tracking on
             </span>
           )}

@@ -110,7 +110,7 @@ function SuggestionCard({ suggestion, onDismiss }) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05]">
         <div className="flex items-center gap-1.5">
           <Sparkles size={11} className="text-violet-400" />
-          <span className="text-[10px] font-semibold text-violet-400">FrictionFix AI</span>
+          <span className="text-xs font-medium text-violet-400">FrictionFix AI</span>
         </div>
         <button onClick={onDismiss} className="text-white/25 hover:text-white/70 transition-colors">
           <X size={12} />
@@ -118,7 +118,7 @@ function SuggestionCard({ suggestion, onDismiss }) {
       </div>
 
       <div className="px-4 pt-3 pb-1">
-        <div className="flex items-center gap-2 text-[10px] text-white/30 mb-2">
+        <div className="flex items-center gap-2 text-[11px] text-white/30 mb-2">
           <Brain size={9} />
           <span>EEG load: <span className="text-red-400">{suggestion.eegLoad}/100</span></span>
           <span>·</span>
@@ -133,7 +133,7 @@ function SuggestionCard({ suggestion, onDismiss }) {
 
       <div className="px-4 pb-4">
         <div className="bg-violet-500/[0.07] border border-violet-500/15 rounded-lg p-3">
-          <p className="text-white/85 text-[13px] leading-relaxed">{suggestion.text}</p>
+          <p className="text-white/85 text-sm leading-relaxed">{suggestion.text}</p>
         </div>
       </div>
     </motion.div>
@@ -451,7 +451,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
             className="fixed top-16 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0b18]/90 backdrop-blur border border-violet-500/20 shadow"
           >
             <Loader2 size={11} className="text-violet-400 animate-spin" />
-            <span className="text-[11px] text-white/45">Loading eye tracking…</span>
+            <span className="text-xs text-white/45">Loading eye tracking…</span>
           </motion.div>
         )}
 
@@ -464,7 +464,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
             className="fixed top-16 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0b18]/90 backdrop-blur border border-red-500/30 shadow"
           >
             <AlertCircle size={11} className="text-red-400" />
-            <span className="text-[11px] text-red-400/80">{wgError || 'Eye tracking failed'}</span>
+            <span className="text-xs text-red-400/80">{wgError || 'Eye tracking failed'}</span>
           </motion.div>
         )}
 
@@ -481,7 +481,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
                 <motion.div animate={eegLoad > LOAD_THRESHOLD ? { scale: [1, 1.35, 1] } : {}} transition={{ repeat: Infinity, duration: 0.8 }}>
                   <Brain size={11} className={eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400/60'} />
                 </motion.div>
-                <span className="text-[11px] text-white/45">
+                <span className="text-xs text-white/45">
                   EEG{' '}
                   <span className={`font-semibold ${eegLoad > LOAD_THRESHOLD ? 'text-red-400' : 'text-violet-400'}`}>
                     {eegLoad}
@@ -493,7 +493,7 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
             )}
             <button
               onClick={() => { gazeSmoothRef.current = null; setWgStatus('calibrating') }}
-              className="text-[10px] text-violet-400/50 hover:text-violet-400 transition-colors"
+              className="text-[11px] text-violet-400/50 hover:text-violet-400 transition-colors"
             >
               recalibrate
             </button>

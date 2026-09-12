@@ -44,12 +44,12 @@ function WebcamFeed({ active }) {
             transition={{ repeat: Infinity, duration: 1.6 }}
             className={`w-1.5 h-1.5 rounded-full ${ready ? 'bg-red-400' : 'bg-white/20'}`}
           />
-          <span className="text-[10px] font-semibold text-white/30">
+          <span className="text-xs font-medium text-white/35">
             {ready ? 'Live Camera' : denied ? 'Camera blocked' : 'Connecting…'}
           </span>
         </div>
         {ready && (
-          <span className="text-[9px] text-white/20">participant view</span>
+          <span className="text-[11px] text-white/20">participant view</span>
         )}
       </div>
 
@@ -135,7 +135,7 @@ function FrictionEntry({ entry, index }) {
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-1.5">
           <Sparkles size={10} className="text-mint-500 flex-shrink-0" />
-          <span className="text-[10px] font-semibold text-mint-500">Friction detected</span>
+          <span className="text-xs font-medium text-mint-500">Friction detected</span>
         </div>
         <button onClick={() => setDismissed(true)} className="text-white/20 hover:text-white/50 flex-shrink-0">
           <X size={11} />
@@ -156,7 +156,7 @@ function FrictionEntry({ entry, index }) {
         )}
       </div>
 
-      <p className="text-white/70 text-[12px] leading-relaxed">{entry.text}</p>
+      <p className="text-white/70 text-sm leading-relaxed">{entry.text}</p>
     </motion.div>
   )
 }
@@ -168,7 +168,7 @@ function ResearchPanel({ sessionActive, elapsed, eegMode, gazeEnabled, suggestio
     <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
       {/* Session controls */}
       <div className="panel p-4">
-        <p className="text-[10px] font-semibold text-white/30 mb-3">Session</p>
+        <p className="text-xs font-medium text-white/35 mb-3">Session</p>
         {!sessionActive ? (
           <motion.button
             onClick={onStart}
@@ -208,14 +208,14 @@ function ResearchPanel({ sessionActive, elapsed, eegMode, gazeEnabled, suggestio
 
       {/* Signal status */}
       <div className="panel p-4 space-y-2.5">
-        <p className="text-[10px] font-semibold text-white/30">Signals</p>
+        <p className="text-xs font-medium text-white/35">Signals</p>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-white/45 text-xs">
             <Brain size={11} />
             EEG
           </div>
-          <span className={`text-[11px] font-medium ${eegMode === 'simulated' ? 'text-yellow-400' : 'text-white/20'}`}>
+          <span className={`text-xs font-medium ${eegMode === 'simulated' ? 'text-yellow-400' : 'text-white/20'}`}>
             {eegMode === 'simulated' ? 'Simulated' : 'Disconnected'}
           </span>
         </div>
@@ -225,7 +225,7 @@ function ResearchPanel({ sessionActive, elapsed, eegMode, gazeEnabled, suggestio
             <Eye size={11} />
             Eye tracking
           </div>
-          <span className={`text-[11px] font-medium ${gazeEnabled ? 'text-violet-400' : 'text-white/20'}`}>
+          <span className={`text-xs font-medium ${gazeEnabled ? 'text-violet-400' : 'text-white/20'}`}>
             {gazeEnabled ? 'Active' : 'Off'}
           </span>
         </div>
@@ -244,7 +244,7 @@ function ResearchPanel({ sessionActive, elapsed, eegMode, gazeEnabled, suggestio
       {/* Friction log */}
       <div className="panel p-4 flex-1 flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] font-semibold text-white/30">Friction log</p>
+          <p className="text-xs font-medium text-white/35">Friction log</p>
           {hasSuggestions && (
             <span className="text-[10px] text-white/30">{suggestions.length} found</span>
           )}

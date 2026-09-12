@@ -15,7 +15,7 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults }
           <div className="w-7 h-7 rounded-lg bg-mint-500 flex items-center justify-center shadow-lg shadow-mint-500/20">
             <Activity size={14} strokeWidth={2.5} className="text-[#0d0d0d]" />
           </div>
-          <span className="font-semibold text-[15px] tracking-tight">FrictionFix</span>
+          <span className="font-semibold text-[15px] tracking-tight font-display">FrictionFix</span>
         </div>
       </div>
 
@@ -32,7 +32,7 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults }
               whileTap={!disabled ? { scale: 0.97 } : {}}
               aria-current={active ? 'page' : undefined}
               className={[
-                'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors duration-150',
+                'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150',
                 active ? 'bg-white/[0.07] text-white'
                   : disabled ? 'text-white/20 cursor-not-allowed'
                   : 'text-white/45 hover:text-white/75 hover:bg-white/[0.04] cursor-pointer',

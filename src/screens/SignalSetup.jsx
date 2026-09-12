@@ -33,11 +33,11 @@ function DeviceCard({ title, subtitle, status, channels }) {
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <Radio size={14} className={connected ? 'text-mint-500' : 'text-white/25'} />
-            <span className="font-semibold text-[15px]">{title}</span>
+            <span className="text-sm font-semibold">{title}</span>
           </div>
           <p className="text-white/35 text-xs ml-5">{subtitle}</p>
         </div>
-        <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium border ${
+        <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${
           connected
             ? 'bg-mint-500/10 text-mint-500 border-mint-500/25'
             : 'bg-white/[0.03] text-white/25 border-white/[0.06]'
@@ -78,7 +78,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
       <motion.div variants={container} initial="hidden" animate="show" className="max-w-3xl mx-auto space-y-4">
         {/* Header */}
         <motion.div variants={item}>
-          <h1 className="text-2xl font-semibold">Signal Setup</h1>
+          <h1 className="text-2xl font-semibold font-display">Signal Setup</h1>
           <p className="text-white/35 text-sm mt-0.5">Configure EEG and fNIRS hardware · Ready for live connection</p>
         </motion.div>
 
@@ -94,7 +94,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
             <div>
               <div className="flex items-center gap-2">
                 <Activity size={15} className={simulated ? 'text-mint-500' : 'text-white/30'} />
-                <h3 className="font-semibold text-[15px]">EEG Simulation Mode</h3>
+                <h3 className="text-sm font-semibold">EEG Simulation Mode</h3>
               </div>
               <p className="text-white/35 text-xs mt-0.5 ml-6">
                 Generate synthetic signals for demo and development
@@ -134,10 +134,10 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
             >
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="font-semibold text-[15px]">Live Signal Preview</h3>
+                  <h3 className="text-sm font-semibold">Live Signal Preview</h3>
                   <p className="text-white/35 text-xs mt-0.5">6 of 12 channels shown</p>
                 </div>
-                <span className="text-[11px] px-2.5 py-1 rounded-full border font-semibold bg-yellow-500/[0.08] text-yellow-400 border-yellow-500/20">
+                <span className="text-xs px-2.5 py-1 rounded-full border font-semibold bg-yellow-500/[0.08] text-yellow-400 border-yellow-500/20">
                   SIMULATED EEG
                 </span>
               </div>
@@ -175,7 +175,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
             <div>
               <div className="flex items-center gap-2">
                 <Eye size={15} className={gazeEnabled ? 'text-violet-400' : 'text-white/30'} />
-                <h3 className="font-semibold text-[15px]">Eye Tracking + AI Analysis</h3>
+                <h3 className="text-sm font-semibold">Eye Tracking + AI Analysis</h3>
               </div>
               <p className="text-white/35 text-xs mt-0.5 ml-6">
                 WebGazer.js tracks gaze · fixation + EEG load triggers Claude
@@ -197,7 +197,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                   <div className="bg-violet-500/[0.06] border border-violet-500/20 rounded-lg p-3.5">
                     <div className="flex items-center gap-1.5 mb-2">
                       <Sparkles size={12} className="text-violet-400" />
-                      <span className="text-[11px] font-semibold text-violet-400">How it works</span>
+                      <span className="text-xs font-medium text-violet-400">How it works</span>
                     </div>
                     <div className="space-y-1.5 text-xs text-white/45 leading-relaxed">
                       <p>1. Webcam tracks your gaze in real time via WebGazer.js</p>
@@ -209,7 +209,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
 
                   {/* API key input */}
                   <div>
-                    <label className="flex items-center gap-1.5 text-[11px] font-medium text-white/40 mb-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-medium text-white/40 mb-1.5">
                       <Key size={10} />
                       Anthropic API Key
                     </label>
@@ -227,13 +227,13 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                   </div>
 
                   {apiKey.trim() && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-mint-500">
+                    <div className="flex items-center gap-1.5 text-xs text-mint-500">
                       <span className="w-1.5 h-1.5 rounded-full bg-mint-500 inline-block" />
                       API key set · eye tracking ready
                     </div>
                   )}
                   {gazeEnabled && !apiKey.trim() && (
-                    <p className="text-yellow-400/70 text-[11px]">
+                    <p className="text-yellow-400/70 text-xs">
                       ⚠ Add your API key above to enable Claude suggestions
                     </p>
                   )}
@@ -247,7 +247,7 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
         <motion.div variants={item} className="panel p-5">
           <div className="flex items-center gap-2 mb-4">
             <Settings size={14} className="text-white/30" />
-            <h3 className="font-semibold text-[15px]">Live Hardware Connection</h3>
+            <h3 className="text-sm font-semibold">Live Hardware Connection</h3>
           </div>
           <div className="space-y-3">
             {[
