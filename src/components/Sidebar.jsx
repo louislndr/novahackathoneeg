@@ -90,9 +90,6 @@ export default function Sidebar({ screen, setScreen, sessionActive, hasResults, 
         </div>
       </div>
 
-      <div className="px-4 py-3 border-t border-white/[0.05]">
-        <p className="text-[11px] text-white/15">v0.2.0 · Demo</p>
-      </div>
     </aside>
   )
 }
