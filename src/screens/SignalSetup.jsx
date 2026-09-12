@@ -36,35 +36,24 @@ function DeviceCard({ title, subtitle, status, channels }) {
   const badgeLabel = connected ? 'Connected' : error ? 'Error' : connecting ? 'Connecting…' : 'Disconnected'
 
   return (
-    <div className="panel w-full p-5">
-      <div className="flex items-start justify-between mb-3">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Radio size={13} className={connected ? 'text-mint-500' : 'text-white/20'} />
         <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <Radio size={14} className={connected ? 'text-mint-500' : 'text-white/25'} />
-            <span className="text-sm font-semibold">{title}</span>
+          <span className="text-sm text-white/70">{subtitle}</span>
+          <div className="flex items-center gap-2 mt-0.5">
+            {connected
+              ? <Wifi size={10} className="text-mint-500" />
+              : <WifiOff size={10} className="text-white/20" />
+            }
+            <span className="text-white/25 text-xs">{channels} channels</span>
           </div>
-          <p className="text-white/35 text-xs ml-6">{subtitle}</p>
         </div>
-        <span className={`text-xs px-2.5 py-1 rounded-full font-medium border flex items-center gap-1.5 ${badgeClass}`}>
-          {connecting && <Loader2 size={9} className="animate-spin" />}
-          {badgeLabel}
-        </span>
       </div>
-      <div className="flex items-center gap-4 mt-3">
-        <div className="flex items-center gap-1.5">
-          {connected
-            ? <Wifi size={12} className="text-mint-500" />
-            : <WifiOff size={12} className="text-white/20" />
-          }
-          <span className="text-white/30 text-xs">{channels} channels</span>
-        </div>
-        {!connected && !connecting && !error && (
-          <span className="text-white/20 text-xs">Run bridge.py to connect</span>
-        )}
-        {error && (
-          <span className="text-red-400/60 text-xs">bridge.py not running?</span>
-        )}
-      </div>
+      <span className={`text-xs px-2.5 py-1 rounded-full font-medium border flex items-center gap-1.5 ${badgeClass}`}>
+        {connecting && <Loader2 size={9} className="animate-spin" />}
+        {badgeLabel}
+      </span>
     </div>
   )
 }
@@ -90,16 +79,6 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
           <p className="text-white/35 text-sm mt-0.5">Connect your EEG and eye tracking signals</p>
         </motion.div>
 
-        {/* Hardware status */}
-        <motion.div variants={item} className="flex flex-col gap-4">
-          <DeviceCard
-            title="EEG"
-            subtitle="ANT Neuro eego™mylab"
-            status={live ? eegWsStatus : 'disconnected'}
-            channels={12}
-          />
-        </motion.div>
-
         {/* Live EEG toggle */}
         <motion.div variants={item} className="panel p-5">
           <div className="flex items-center justify-between">
@@ -108,11 +87,19 @@ export default function SignalSetup({ eegMode, setEegMode, gazeEnabled, setGazeE
                 <Wifi size={15} className={live ? 'text-mint-500' : 'text-white/30'} />
                 <h3 className="text-sm font-semibold">Live EEG</h3>
               </div>
-              <p className="text-white/35 text-xs mt-0.5 ml-6">
-                Streams via LSL
-              </p>
+              <p className="text-white/35 text-xs mt-0.5 ml-6">Streams via LSL</p>
             </div>
             <Toggle value={live} onChange={(v) => setEegMode(v ? 'live' : 'disconnected')} />
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-white/[0.05]">
+            <p className="text-[11px] text-white/25 font-medium mb-2 ml-1">Device</p>
+            <DeviceCard
+              title="EEG"
+              subtitle="ANT Neuro eego™mylab"
+              status={live ? eegWsStatus : 'disconnected'}
+              channels={12}
+            />
           </div>
         </motion.div>
 
