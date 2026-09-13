@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, Sparkles, Brain, Globe, Clock, Info, Rocket, Loader2, CheckCircle2 } from 'lucide-react'
+import { Download, Sparkles, Brain, Globe, Info, Rocket, Loader2, CheckCircle2 } from 'lucide-react'
 import { formatMs } from '../App'
 
 const IMPROVED_SITE_URL = window.location.origin + '/demo-sites/coastal-clean/index.html'
@@ -160,11 +160,6 @@ export default function ResultsScreen({ targetUrl, setScreen, setTargetUrl, rese
                 </div>
 
                 <div className="flex items-center gap-3 mb-2 pl-[19px]">
-                  <span className="text-[10px] text-white/25 flex items-center gap-1">
-                    <Clock size={9} />
-                    {formatMs(s.sessionElapsed)}
-                  </span>
-                  <span className="text-[10px] text-white/20">·</span>
                   <span className="text-[10px] text-white/25 flex items-center gap-1">
                     <Brain size={9} />
                     EEG <span className="font-mono text-white/40">{s.eegLoad}</span>/100
