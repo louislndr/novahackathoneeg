@@ -31,6 +31,113 @@ const slide = {
   exit: { opacity: 0, y: -10, transition: { duration: 0.16, ease: 'easeIn' } },
 }
 
+// ── EEG session analysis ──────────────────────────────────────────────────────
+
+function analyzeEEGSession(log) {
+  if (log.length < 4) return { events: [], metrics: null }
+  const n = log.length
+  const loads = log.map(e => e.load)
+  const meanLoad = Math.round(loads.reduce((a, b) => a + b, 0) / n)
+  const maxLoad = Math.max(...loads)
+  const highLoadPct = Math.round(loads.filter(l => l >= 65).length / n * 100)
+  const duration = log[n - 1].elapsed - log[0].elapsed
+  // Engagement peaks at moderate load (~47) — Pope et al. (1995) inverted-U
+  const meanEngagement = Math.round(
+    loads.reduce((acc, l) => acc + Math.max(0, 100 - Math.abs(l - 47) * 1.9), 0) / n
+  )
+  const events = []
+
+  // Cognitive overload: load >= 65 for >= 2.5s — Berka et al. (2007)
+  let oStart = null, oPeak = 0
+  for (let i = 0; i < n; i++) {
+    const { elapsed, load } = log[i]
+    if (load >= 65) {
+      if (oStart === null) { oStart = elapsed; oPeak = load }
+      else oPeak = Math.max(oPeak, load)
+    } else {
+      if (oStart !== null && elapsed - oStart >= 2500) {
+        events.push({ type: 'cognitive_overload', elapsed: oStart, duration: elapsed - oStart, peakLoad: Math.round(oPeak), severity: oPeak >= 78 ? 'high' : 'medium' })
+      }
+      oStart = null; oPeak = 0
+    }
+  }
+  if (oStart !== null && log[n - 1].elapsed - oStart >= 2500)
+    events.push({ type: 'cognitive_overload', elapsed: oStart, duration: log[n - 1].elapsed - oStart, peakLoad: Math.round(oPeak), severity: oPeak >= 78 ? 'high' : 'medium' })
+
+  // Disengagement: load < 22 + low variance for >= 4s — Freeman et al. (1999)
+  let dStart = null, dMin = 100
+  const W = 4
+  for (let i = 0; i < n; i++) {
+    const win = loads.slice(Math.max(0, i - W + 1), i + 1)
+    const wm = win.reduce((a, b) => a + b, 0) / win.length
+    const variance = win.reduce((acc, v) => acc + (v - wm) ** 2, 0) / win.length
+    const { elapsed, load } = log[i]
+    if (load < 22 && variance < 40) {
+      if (dStart === null) { dStart = elapsed; dMin = load }
+      else dMin = Math.min(dMin, load)
+    } else {
+      if (dStart !== null && elapsed - dStart >= 4000)
+        events.push({ type: 'disengagement', elapsed: dStart, duration: elapsed - dStart, minLoad: Math.round(dMin), severity: 'medium' })
+      dStart = null; dMin = 100
+    }
+  }
+
+  return {
+    events: events.sort((a, b) => a.elapsed - b.elapsed),
+    metrics: { meanLoad, maxLoad, highLoadPct, meanEngagement, duration, sampleCount: n },
+  }
+}
+
+async function generateAiReport(apiKey, { targetUrl, metrics, events, suggestions }) {
+  const fmt = ms => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}` }
+  const eventLines = events.length === 0
+    ? 'None detected.'
+    : events.map(e => e.type === 'cognitive_overload'
+        ? `• Cognitive overload at ${fmt(e.elapsed)} — peak load ${e.peakLoad}/100, duration ${fmt(e.duration)} [${e.severity}]`
+        : `• Disengagement at ${fmt(e.elapsed)} — load dropped to ${e.minLoad}/100, duration ${fmt(e.duration)}`
+      ).join('\n')
+  const gazeLines = suggestions.length === 0
+    ? 'None captured.'
+    : suggestions.slice(0, 6).map(s => `• ${fmt(s.sessionElapsed)}: fixation on "${s.elementLabel || 'page region'}" — EEG load ${s.eegLoad}/100`).join('\n')
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 400,
+      messages: [{
+        role: 'user',
+        content: `You are a UX researcher interpreting EEG and eye tracking data from a usability test.
+
+URL: ${targetUrl || 'unknown'}
+Duration: ${fmt(metrics.duration)} · Mean cognitive load: ${metrics.meanLoad}/100 · Peak: ${metrics.maxLoad}/100 · High-load time: ${metrics.highLoadPct}% · Engagement: ${metrics.meanEngagement}%
+
+EEG friction events (θ+β/α signal analysis):
+${eventLines}
+
+Gaze fixations (eye tracking):
+${gazeLines}
+
+Write a UX friction report (150–200 words):
+1. One-sentence overall verdict on this page's usability
+2. The 2–3 most critical friction points with specific design recommendations
+3. One priority action
+
+Be concrete. Address the designer directly. No preamble.`,
+      }],
+    }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const data = await res.json()
+  return data.content?.[0]?.text ?? null
+}
+
 export default function App() {
   const [screen, setScreen] = useState('study')
   const [sessionActive, setSessionActive] = useState(false)
@@ -49,15 +156,25 @@ export default function App() {
   const [recalibrateKey, setRecalibrateKey] = useState(0)
   const [backendFrictionEvents, setBackendFrictionEvents] = useState([])
   const [isCalibrating, setIsCalibrating] = useState(false)
+  const [eegFrictionEvents, setEegFrictionEvents] = useState([])
+  const [eegSessionMetrics, setEegSessionMetrics] = useState(null)
+  const [aiReport, setAiReport] = useState(null)
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
 
   const eegWsRef = useRef(null)
   const backendSessionRef = useRef(null)
+  const eegSessionLogRef = useRef([])
+  const sessionActiveForLogRef = useRef(false)
   // Ref so addSuggestion never needs elapsed in its deps
   const elapsedRef = useRef(0)
-  // Stable ref for targetUrl so startSession closure is stable
+  // Stable refs for closures
   const targetUrlRef = useRef(targetUrl)
+  const apiKeyRef = useRef(apiKey)
+  const suggestionsRef = useRef(suggestions)
   useEffect(() => { elapsedRef.current = elapsed }, [elapsed])
   useEffect(() => { targetUrlRef.current = targetUrl }, [targetUrl])
+  useEffect(() => { apiKeyRef.current = apiKey }, [apiKey])
+  useEffect(() => { suggestionsRef.current = suggestions }, [suggestions])
 
   useEffect(() => {
     if (eegMode !== 'live') {
@@ -105,6 +222,12 @@ export default function App() {
   const startSession = useCallback(async () => {
     setSuggestions([])
     setBackendFrictionEvents([])
+    setEegFrictionEvents([])
+    setEegSessionMetrics(null)
+    setAiReport(null)
+    setIsGeneratingReport(false)
+    eegSessionLogRef.current = []
+    sessionActiveForLogRef.current = true
     const t = Date.now()
     setStartTime(t)
     setElapsed(0)
@@ -128,8 +251,28 @@ export default function App() {
   }, [])
 
   const stopSession = useCallback(async () => {
+    sessionActiveForLogRef.current = false
+    const log = [...eegSessionLogRef.current]
+    const { events, metrics } = analyzeEEGSession(log)
+    setEegFrictionEvents(events)
+    setEegSessionMetrics(metrics)
+
     setSessionActive(false)
     setScreen('results')
+
+    // Generate AI narrative report
+    const key = apiKeyRef.current?.trim()
+    if (key && metrics) {
+      setIsGeneratingReport(true)
+      generateAiReport(key, {
+        targetUrl: targetUrlRef.current,
+        metrics,
+        events,
+        suggestions: suggestionsRef.current,
+      }).then(report => setAiReport(report))
+        .catch(() => {})
+        .finally(() => setIsGeneratingReport(false))
+    }
 
     if (backendSessionRef.current) {
       const { id, client } = backendSessionRef.current
@@ -147,9 +290,15 @@ export default function App() {
   }, [])
 
   const resetSession = useCallback(() => {
+    sessionActiveForLogRef.current = false
     setSessionActive(false)
     setSuggestions([])
     setBackendFrictionEvents([])
+    setEegFrictionEvents([])
+    setEegSessionMetrics(null)
+    setAiReport(null)
+    setIsGeneratingReport(false)
+    eegSessionLogRef.current = []
     setElapsed(0)
     setStartTime(null)
     if (backendSessionRef.current) {
@@ -183,6 +332,11 @@ export default function App() {
 
   const handleRecalibrate = useCallback(() => setRecalibrateKey(k => k + 1), [])
 
+  const handleEegLoad = useCallback((load) => {
+    if (!sessionActiveForLogRef.current) return
+    eegSessionLogRef.current.push({ elapsed: elapsedRef.current, load })
+  }, [])
+
   const ctx = {
     screen, setScreen,
     sessionActive,
@@ -196,9 +350,12 @@ export default function App() {
     eegWsStatus, liveEegLoad, liveEegChannels, eegStreamInfo, eegHistoryRef,
     recalibrateKey,
     backendFrictionEvents,
+    eegFrictionEvents, eegSessionMetrics,
+    aiReport, isGeneratingReport,
     sendGaze,
     sendBehaviorEvent,
     onCalibrationChange: setIsCalibrating,
+    onEegLoad: handleEegLoad,
   }
 
   return (
@@ -209,7 +366,7 @@ export default function App() {
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
         >
           <ShaderGradient
-            animate={isCalibrating ? 'off' : 'on'}
+            animate={isCalibrating || sessionActive ? 'off' : 'on'}
             axesHelper="off"
             brightness={1.2}
             cAzimuthAngle={180}

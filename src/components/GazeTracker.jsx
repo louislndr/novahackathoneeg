@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion'
 import { Sparkles, X, Brain, CheckCircle2, AlertCircle } from 'lucide-react'
@@ -40,7 +40,7 @@ function CalibrationOverlay({ onDone }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-[#09080f]/96"
+      className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-md"
     >
       <div className="absolute text-center pointer-events-none select-none" style={{ top: '30%', left: '50%', transform: 'translateX(-50%)' }}>
         <h2 className="text-lg font-semibold mb-1">Eye Tracking Calibration</h2>
@@ -130,9 +130,9 @@ function SuggestionCard({ suggestion, onDismiss }) {
   )
 }
 
-const HEAT_THROTTLE_MS = 30
-const HEAT_RADIUS = 90
-const HEAT_DECAY = 0.03
+const HEAT_THROTTLE_MS = 16
+const HEAT_RADIUS = 108
+const HEAT_DECAY = 0.012
 const MAX_JUMP_PX = 400
 
 // Wait for window.webgazer to be set by the <script defer> tag in index.html.
@@ -155,9 +155,9 @@ let _wgInitializing = false
 // Callbacks registered by components that mounted while begin() was still in flight.
 const _pendingAttach = new Set()
 
-export default function GazeTracker({
+function GazeTracker({
   enabled, sessionActive, targetUrl, apiKey, iframeRef, onSuggestion,
-  onGaze, liveEegLoad, recalibrateKey, onCalibrationChange,
+  onGaze, liveEegLoad, recalibrateKey, onCalibrationChange, onEegLoad,
 }) {
   // Only state that actually needs to drive renders
   const [wgStatus, setWgStatus] = useState('idle')
@@ -179,11 +179,13 @@ export default function GazeTracker({
   const targetUrlRef = useRef(targetUrl)
   const onGazeRef = useRef(onGaze)
   const onSuggestionRef = useRef(onSuggestion)
+  const onEegLoadRef = useRef(onEegLoad)
   useEffect(() => { sessionActiveRef.current = sessionActive }, [sessionActive])
   useEffect(() => { apiKeyRef.current = apiKey }, [apiKey])
   useEffect(() => { targetUrlRef.current = targetUrl }, [targetUrl])
   useEffect(() => { onGazeRef.current = onGaze }, [onGaze])
   useEffect(() => { onSuggestionRef.current = onSuggestion }, [onSuggestion])
+  useEffect(() => { onEegLoadRef.current = onEegLoad }, [onEegLoad])
 
   const fixRef = useRef({ x: 0, y: 0, start: null })
   const eegLoadRef = useRef(0)
@@ -197,6 +199,7 @@ export default function GazeTracker({
   const liveEegLoadRef = useRef(null)
   const canvasRef = useRef(null)
   const lastHeatTimeRef = useRef(0)
+  const lastHeatPosRef = useRef(null)
 
   // Cache getBoundingClientRect — calling it 30fps forces layout reflow each time
   const iframeRectRef = useRef(null)
@@ -223,43 +226,55 @@ export default function GazeTracker({
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
-
-    const grd = ctx.createRadialGradient(x, y, 0, x, y, HEAT_RADIUS)
-    grd.addColorStop(0,   'rgba(255, 245, 50,  0.22)')
-    grd.addColorStop(0.2, 'rgba(255, 130, 0,   0.16)')
-    grd.addColorStop(0.5, 'rgba(220, 20, 20,   0.09)')
-    grd.addColorStop(0.8, 'rgba(140, 0, 50,    0.03)')
-    grd.addColorStop(1,   'rgba(0, 0, 0, 0)')
-
-    // source-over keeps colors in the warm range — 'lighter' overflows to white
     ctx.globalCompositeOperation = 'source-over'
-    ctx.fillStyle = grd
-    ctx.beginPath()
-    ctx.arc(x, y, HEAT_RADIUS, 0, Math.PI * 2)
-    ctx.fill()
+
+    // Interpolate between last drawn pos and current — produces a continuous smear
+    const prev = lastHeatPosRef.current
+    const steps = prev
+      ? Math.min(6, Math.max(1, Math.round(Math.hypot(x - prev.x, y - prev.y) / 20)))
+      : 1
+    for (let i = 0; i < steps; i++) {
+      const t = (i + 1) / steps
+      const px = prev ? prev.x + (x - prev.x) * t : x
+      const py = prev ? prev.y + (y - prev.y) * t : y
+      const grd = ctx.createRadialGradient(px, py, 0, px, py, HEAT_RADIUS)
+      grd.addColorStop(0,    'rgba(255, 245, 50,  0.17)')
+      grd.addColorStop(0.18, 'rgba(255, 140, 0,   0.11)')
+      grd.addColorStop(0.45, 'rgba(220, 30, 20,   0.06)')
+      grd.addColorStop(0.75, 'rgba(130, 0, 60,    0.025)')
+      grd.addColorStop(1,    'rgba(0, 0, 0, 0)')
+      ctx.fillStyle = grd
+      ctx.beginPath()
+      ctx.arc(px, py, HEAT_RADIUS, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    lastHeatPosRef.current = { x, y }
   }, [getIframeRect])
 
   useEffect(() => { eegLoadRef.current = eegLoad }, [eegLoad])
 
   useEffect(() => {
     liveEegLoadRef.current = liveEegLoad ?? null
-    if (liveEegLoad != null && sessionActive) setEegLoad(Math.round(liveEegLoad))
+    if (liveEegLoad != null && sessionActive) {
+      const load = Math.round(liveEegLoad)
+      setEegLoad(load)
+      onEegLoadRef.current?.(load)
+    }
   }, [liveEegLoad, sessionActive])
 
   useEffect(() => {
     if (!sessionActive) { setEegLoad(0); return }
     const id = setInterval(() => {
       if (liveEegLoadRef.current != null) return
-      setEegLoad(prev => {
-        const history = eegLoadHistory.current
-        const trend = history.length > 3
-          ? (history[history.length - 1] - history[history.length - 4]) / 3
-          : 0
-        const step = (Math.random() - 0.48) * 8 + trend * 0.3
-        const next = Math.min(100, Math.max(10, prev + step))
-        eegLoadHistory.current = [...history.slice(-10), next]
-        return Math.round(next)
-      })
+      const history = eegLoadHistory.current
+      const trend = history.length > 3
+        ? (history[history.length - 1] - history[history.length - 4]) / 3
+        : 0
+      const step = (Math.random() - 0.48) * 8 + trend * 0.3
+      const next = Math.round(Math.min(100, Math.max(10, eegLoadRef.current + step)))
+      eegLoadHistory.current = [...history.slice(-10), next]
+      setEegLoad(next)
+      onEegLoadRef.current?.(next)
     }, 700)
     return () => clearInterval(id)
   }, [sessionActive])
@@ -368,13 +383,16 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
     if (now - lastGazeCallRef.current < 50) return
     lastGazeCallRef.current = now
     const prev = gazeSmoothRef.current
-    if (prev && Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2) > MAX_JUMP_PX) return
-    const alpha = 0.7
+    if (prev && Math.sqrt((data.x - prev.x) ** 2 + (data.y - prev.y) ** 2) > MAX_JUMP_PX) {
+      lastHeatPosRef.current = null  // break the trail on teleport
+      return
+    }
+    const alpha = 0.5
     const smoothed = prev
       ? { x: alpha * data.x + (1 - alpha) * prev.x, y: alpha * data.y + (1 - alpha) * prev.y }
       : { x: data.x, y: data.y }
     gazeSmoothRef.current = smoothed
-    drawHeat(smoothed.x, smoothed.y)
+    if (wgStatusRef.current !== 'calibrating') drawHeat(smoothed.x, smoothed.y)
     if (wgStatusRef.current !== 'calibrating' && wgStatusRef.current !== 'tracking') {
       wgStatusRef.current = 'tracking'
       setWgStatus('tracking')
@@ -403,25 +421,31 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       return
     }
 
-    // Already ready — re-attach listener and resume
+    // Already ready — re-attach listener and resume (don't dismiss an in-progress calibration)
     if (_wgReady && _wg) {
       wgRef.current = _wg
       _wg.setGazeListener(gazeListener)
       _wg.resume()
-      wgStatusRef.current = 'tracking'
-      setWgStatus('tracking')
+      if (wgStatusRef.current !== 'calibrating') {
+        wgStatusRef.current = 'tracking'
+        setWgStatus('tracking')
+      }
       setWgError(null)
       return
     }
 
     // begin() is still in flight — register to attach once it resolves
+    // StrictMode mounts effects twice, so a second run lands here while init is in flight.
+    // Don't override calibrating status when begin() finishes.
     if (_wgInitializing) {
       const attach = () => {
         if (!_wg) return
         wgRef.current = _wg
         _wg.setGazeListener(gazeListener)
-        wgStatusRef.current = 'tracking'
-        setWgStatus('tracking')
+        if (wgStatusRef.current !== 'calibrating') {
+          wgStatusRef.current = 'tracking'
+          setWgStatus('tracking')
+        }
         setWgError(null)
       }
       _pendingAttach.add(attach)
@@ -590,9 +614,14 @@ Give ONE specific, actionable UX suggestion to reduce friction at this element o
       </AnimatePresence>
 
       <AnimatePresence>
-        {calibrating && <CalibrationOverlay onDone={() => setWgStatus('tracking')} />}
+        {calibrating && <CalibrationOverlay onDone={() => {
+          wgStatusRef.current = 'tracking'
+          setWgStatus('tracking')
+        }} />}
       </AnimatePresence>
     </>,
     document.body
   )
 }
+
+export default memo(GazeTracker)

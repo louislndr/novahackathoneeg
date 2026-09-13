@@ -6,11 +6,13 @@ import {
 import GazeTracker from '../components/GazeTracker'
 import { formatMsLive } from '../App'
 
+// Served from this app's /public folder (same-origin) so elementFromPoint() can
+// resolve real DOM elements rather than falling back to page-quadrant estimates.
 const DEMO_SITES = [
   { label: 'Wikipedia', url: 'https://en.wikipedia.org/wiki/Electroencephalography' },
   { label: 'Bookstore', url: 'https://books.toscrape.com' },
   { label: 'Quotes Blog', url: 'https://quotes.toscrape.com' },
-  { label: 'Test Forms', url: 'https://the-internet.herokuapp.com' },
+  { label: 'Coastal Home Services', url: window.location.origin + '/demo-sites/nimbus-pricing/index.html' },
 ]
 
 function EmptyPreview({ onLoad }) {
@@ -47,7 +49,7 @@ export default function StudyScreen({
   eegMode, gazeEnabled, apiKey,
   suggestions, addSuggestion,
   elapsed, liveEegLoad, recalibrateKey,
-  startSession, stopSession, sendGaze, sendBehaviorEvent, onCalibrationChange,
+  startSession, stopSession, sendGaze, sendBehaviorEvent, onCalibrationChange, onEegLoad,
 }) {
   const [urlInput, setUrlInput] = useState('')
   const [iframeUrl, setIframeUrl] = useState('')
@@ -172,23 +174,24 @@ export default function StudyScreen({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="flex items-center gap-2 flex-shrink-0 w-40"
+              className="flex items-center flex-shrink-0 w-36 bg-[#111111] border border-white/[0.07] rounded-lg overflow-hidden"
             >
-              <div className="flex items-center gap-2 flex-1 bg-[#111111] border border-white/[0.07] rounded-lg px-3 py-2.5 min-w-0">
+              <div className="flex items-center gap-2 flex-1 px-3 py-2.5 min-w-0">
                 <motion.span
-                  animate={{ opacity: [1, 0.2, 1] }}
+                  animate={{ opacity: [1, 0.3, 1] }}
                   transition={{ repeat: Infinity, duration: 1.5 }}
                   className="w-1.5 h-1.5 rounded-full bg-mint-500 flex-shrink-0"
                 />
-                <span className="text-mint-500 text-xs font-medium tabular-nums truncate">{formatMsLive(elapsed)}</span>
+                <span className="text-white/70 text-xs font-medium tabular-nums truncate">{formatMsLive(elapsed)}</span>
               </div>
+              <div className="w-px h-4 bg-white/[0.08] flex-shrink-0" />
               <motion.button
                 onClick={stopSession}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                className="btn-ghost py-2.5 px-3 text-red-400 border-red-400/20 hover:bg-red-400/5 flex-shrink-0"
+                whileHover={{ backgroundColor: 'rgba(248,113,113,0.08)' }}
+                whileTap={{ scale: 0.95 }}
+                className="px-3 py-2.5 text-white/25 hover:text-red-400 transition-colors flex-shrink-0"
               >
-                <Square size={11} />
+                <Square size={10} />
               </motion.button>
             </motion.div>
           )}
@@ -240,6 +243,7 @@ export default function StudyScreen({
             liveEegLoad={liveEegLoad}
             recalibrateKey={recalibrateKey}
             onCalibrationChange={onCalibrationChange}
+            onEegLoad={onEegLoad}
           />
         </div>
       </div>
