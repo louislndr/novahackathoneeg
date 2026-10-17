@@ -4,7 +4,7 @@
 
 ### Understand where users struggle.
 
-Eye tracking, EEG signals, and interaction analysis in one usability research workspace.
+A usability research workspace with webcam eye tracking, live EEG visualization, and a backend for analyzing interaction evidence.
 
 **[Explore the live demo →](https://frictionfix.netlify.app/)**
 
@@ -16,37 +16,35 @@ Eye tracking, EEG signals, and interaction analysis in one usability research wo
 
 ## Overview
 
-A click tells you what someone did. It takes more context to understand what made the experience difficult.
+Understanding a difficult user experience takes more than knowing where someone clicked. FrictionFix explores how gaze, EEG activity, and interaction evidence can give usability researchers more context about moments of hesitation.
 
-FrictionFix brings together where people look, how they interact, and changes in EEG activity to help investigate friction on a website. Built during a hackathon, the project connects a React study interface with webcam-based eye tracking, ANT Neuro hardware integration, and a Python analysis backend.
+Built during a hackathon, the project spans a React study interface, an EEG streaming bridge, and a Python analysis backend.
 
 ## Features
 
-- **Interactive study workspace** — Open a target website, run a timed browsing session, and review the results in one place.
-- **Gaze tracking and heatmaps** — Use webcam-based eye tracking to visualize attention and identify sustained fixations.
-- **Live EEG integration** — Stream EEG-derived load indicators from an ANT Neuro eego headset into the interface over WebSocket.
-- **Evidence-based friction scoring** — The backend combines supplied gaze, interaction, and calibrated EEG evidence into episodes with a clear score breakdown.
-- **AI-assisted UX suggestions** — Generate contextual suggestions for improving the page or element being studied.
+- **Study workspace** — Load an embedded website, run a timed browsing session, and review recorded results.
+- **Webcam eye tracking** — Calibrate gaze tracking, visualize attention with a live heatmap, and detect sustained fixations.
+- **Live EEG display** — Connect an ANT Neuro eego LSL stream and display a load indicator derived from EEG frequency bands over WebSocket.
+- **Friction analysis API** — Group incoming gaze, browser events, and calibrated EEG evidence into episodes scored by their contributing evidence types.
+- **Session reports** — Review recorded friction events and export results as JSON.
+- **AI suggestion service** — A configurable Gemini integration through Vertex AI generates UX suggestions from the backend’s recorded evidence.
 
-## How it works
+## Engineering
 
-The browser captures gaze through WebGazer and displays it over the study workspace. A Python bridge discovers EEG streams through Lab Streaming Layer, extracts spectral band power, and sends load updates to the interface.
+**Gaze visualization.** WebGazer estimates gaze from the webcam. The heatmap draws radial gradients on a 2D canvas, while refs and animation values handle frequent position updates without a React state update for every gaze sample.
 
-The FastAPI backend manages sessions and supports gaze observations, browser events, and a separate EEG processing pipeline with signal-quality checks and participant-specific calibration. It groups qualifying evidence by page and element, scores friction episodes, and stores session records in SQLite for review and export.
+**EEG streaming.** The browser bridge looks for LSL sources on the local network, computes theta, alpha, and beta band power, and streams a derived load indicator over WebSocket. A separate backend EEG pipeline provides signal-quality checks, feature extraction, recorded replay, and participant-specific calibration.
 
-## Engineering highlights
-
-- Canvas-based gaze visualization keeps frequent tracking updates outside React’s render cycle.
-- Local-network EEG discovery connects the hardware stream to the browser without a fixed device IP.
-- Signal processing uses NumPy and SciPy, with participant calibration built on scikit-learn.
-- Validated, idempotent observation ingestion supports reliable retries and consistent session records.
+**Session analysis.** FastAPI accepts gaze observations and browser events, validates timestamps and identifiers, and handles duplicate submissions. The scoring engine groups evidence by page and element and counts distinct evidence types within each episode. Session records are stored in SQLite.
 
 ## Tech stack
 
-| Layer | Technologies |
+| Component | Technologies |
 | --- | --- |
-| Interface | React, Vite, Tailwind CSS, Framer Motion |
-| Tracking and visualization | WebGazer, MediaPipe, Three.js, ShaderGradient |
+| Interface and animation | React, Vite, Tailwind CSS, Framer Motion |
+| Eye tracking | WebGazer |
+| Gaze heatmap | HTML Canvas 2D |
+| Animated background | ShaderGradient, Three.js |
 | Backend and storage | Python, FastAPI, SQLite |
-| Signal processing | NumPy, SciPy, scikit-learn, Lab Streaming Layer |
-| AI integrations | Anthropic, Gemini through Vertex AI |
+| EEG processing and calibration | NumPy, SciPy, scikit-learn, Lab Streaming Layer |
+| Backend AI suggestions | Gemini through Vertex AI |
