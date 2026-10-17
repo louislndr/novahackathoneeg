@@ -9,7 +9,7 @@ element. Results are described as **likely friction, supported by evidence** —
 proof of confusion or a validated diagnosis.
 
 This service lives in `backend/` alongside the React app. See the
-[project README](../README.md) for the live demo, architecture, and frontend setup,
+[project README](../README.md) for the live demo and project overview,
 or [INTEGRATION.md](INTEGRATION.md) for the API contract.
 
 ## Start on Windows (PowerShell)

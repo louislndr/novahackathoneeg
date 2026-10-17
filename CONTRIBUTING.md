@@ -1,7 +1,7 @@
 # Contributing to FrictionFix
 
-Follow the [README](README.md#run-locally) to start the frontend and optional backend.
-Use `npm ci` to install the JavaScript dependencies from the committed lockfile.
+Start the frontend with `npm ci` followed by `npm run dev` from the repository root.
+For the optional Python service, follow the [backend setup guide](backend/README.md).
 For backend development, install `backend` with the `test` extra in a virtual environment.
 
 ## Project conventions
