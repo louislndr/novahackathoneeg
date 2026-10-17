@@ -8,8 +8,9 @@ page/element involved, and (optionally) asks Gemini, via Vertex AI, how to impro
 element. Results are described as **likely friction, supported by evidence** — never as
 proof of confusion or a validated diagnosis.
 
-If you received `frictionfix-backend.zip`, extract it and copy the `backend` folder into
-your existing repository root. It contains no frontend files to overwrite.
+This service lives in `backend/` alongside the React app. See the
+[project README](../README.md) for the live demo, architecture, and frontend setup,
+or [INTEGRATION.md](INTEGRATION.md) for the API contract.
 
 ## Start on Windows (PowerShell)
 

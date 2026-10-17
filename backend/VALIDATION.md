@@ -4,7 +4,10 @@ These are development checks, not clinical or commercial validation.
 
 ## Automated tests
 
-`python -m pytest -q`: **29 passed** on Python 3.13 / Windows.
+`python -m pytest -q`: **38 passed** on Python 3.12 / macOS during the
+repository cleanup. Two dependency deprecation warnings were reported by
+Starlette/httpx and AnyIO; no tests failed. Earlier development checks ran on
+Python 3.13 / Windows.
 
 The tests cover spectral features, raw artifact rejection, ANT DC-offset handling,
 source units, chunk gaps/reordering; strict per-type browser-event validation, event and

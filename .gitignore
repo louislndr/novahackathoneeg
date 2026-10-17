@@ -1,15 +1,29 @@
+# Frontend dependencies and build output
 node_modules/
 dist/
+
+# Local settings and credentials
 .DS_Store
 *.local
+.env
+.env.*
+!.env.example
+
+# Python environments and caches
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
 *.egg-info/
-.env
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Generated session data and reports
 backend/data/
 backend/reports/
+
+# Raw recordings and local archives
 *.cnt
 *.trg
 *.evt

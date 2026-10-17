@@ -39,3 +39,21 @@ recording replay passes a real HTTP smoke test. Synthetic LSL outlet-to-bridge-t
 transport passes. Flip-cup holdout: 28/50 correct (56%), balanced accuracy 54.8%,
 versus training-majority baseline 48%; insufficient evidence of reliable prediction.
 Actual ANT cap and teammate frontend remain unverified. See backend/VALIDATION.md.
+
+---
+
+# Repository cleanup
+
+- [x] Review the README against the current frontend and backend implementation.
+- [x] Add the live demo, local setup, architecture, repository guide, and integration limits.
+- [x] Move the challenge handout into `docs/` and link it from the README.
+- [x] Add contributor guidance, editor conventions, and broader local-file exclusions.
+- [x] Add GitHub Actions checks for the frontend build and backend tests.
+- [x] Verify documentation links, production build, backend tests, and whitespace.
+
+## Review
+
+The backend suite passes with 38 tests on Python 3.12 / macOS. The frontend
+production build passes; Vite reports the existing large bundle warning.
+Documentation links resolve locally. Live hardware and hosted backend connectivity
+were not tested as part of this documentation and repository maintenance change.
